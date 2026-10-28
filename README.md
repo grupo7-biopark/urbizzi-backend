@@ -92,6 +92,17 @@ docker run --rm -p 3000:3000 -e DATABASE_URL=postgresql://... urbizzi-backend
 
 A imagem de produção não inclui o Prisma CLI; as migrations devem ser aplicadas no pipeline de deploy com `npm run db:deploy`.
 
+## Arquitetura e padrões
+
+O backend é um **monolito modular**. Antes de contribuir (pessoa ou IA), leia o [AGENTS.md](AGENTS.md) e a documentação em [`docs/`](docs):
+
+- [Arquitetura](docs/architecture.md): módulos, camadas, comunicação entre módulos e exemplo completo de módulo
+- [Convenções](docs/conventions.md): nomenclatura, idioma, commits e branches
+- [Padrões da API](docs/api-standards.md): REST, versionamento (`/v1`), paginação, filtros, formato de erro e Swagger
+- [Banco de dados](docs/database.md): Prisma, migrations, uuid, timestamps, soft delete e transações
+- [Testes](docs/testing.md): unitários, e2e, factories e cobertura
+- [Segurança](docs/security.md): autenticação, autorização por perfil, LGPD e segredos
+
 ## Estrutura
 
 ```
@@ -99,9 +110,12 @@ prisma/              schema e migrations do Prisma
 prisma7.config.ts    configuração do Prisma CLI
 src/
   config/            validação das variáveis de ambiente
-  health/            GET /health (Terminus + ping no banco)
-  prisma/            PrismaModule / PrismaService (global)
-  app.setup.ts       ValidationPipe global e Swagger
+  modules/           módulos de domínio (application / domain / infra)
+  shared/            código transversal: erros, paginação, Prisma, filtro de erros, Swagger, health
+  app.setup.ts       versionamento, ValidationPipe, filtro de erros e Swagger
   main.ts            bootstrap
 test/                testes e2e
+docs/                arquitetura e padrões
 ```
+
+> Alterou `package.json`, `nest-cli.json`, moveu/renomeou arquivos em `src/` ou o hot reload parou de refletir mudanças? Reconstrua o container: `docker compose up -d --build api`.
