@@ -51,6 +51,7 @@ Antes de dizer que terminou: `npm run lint && npm run format:check && npm run bu
 | [docs/database.md](docs/database.md) | alterar o `schema.prisma`, criar migrations, usar transações |
 | [docs/testing.md](docs/testing.md) | escrever testes unitários e e2e |
 | [docs/security.md](docs/security.md) | autenticação, autorização por perfil, dados pessoais (LGPD) e segredos |
+| [docs/Urbizzi - Escopo do Sistema v2.md](<docs/Urbizzi - Escopo do Sistema v2.md>) | entender o negócio: perfis e permissões, fluxos, regras (RN), requisitos (RF/RNF) e modelo de dados. É a fonte dos códigos RN/RF citados nas issues |
 
 Cada módulo tem um `OVERVIEW.md` próprio descrevendo suas regras de negócio, endpoints e dependências. Leia o do módulo antes de alterá-lo.
 
