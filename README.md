@@ -12,7 +12,7 @@ API do Urbizzi construída com [NestJS](https://docs.nestjs.com) (TypeScript `st
 ```bash
 git clone https://github.com/grupo7-biopark/urbizzi-backend.git
 cd urbizzi-backend
-cp .env.example .env        # opcional: o compose tem valores padrão
+cp .env.example .env        # configure JWT_SECRET antes de iniciar
 docker compose up --build
 ```
 
@@ -43,6 +43,9 @@ Error: Variáveis de ambiente inválidas:
 
 | Variável            | Obrigatória | Padrão        | Descrição                                   |
 | ------------------- | ----------- | ------------- | ------------------------------------------- |
+| `JWT_SECRET` | sim | - | Segredo HS256 com no mínimo 32 caracteres |
+| `JWT_EXPIRES_IN` | não | `900` | Validade do access token em segundos (60 a 3600) |
+| `REFRESH_TOKEN_EXPIRES_IN` | não | `604800` | Validade do refresh em segundos (3600 a 2592000) |
 | `DATABASE_URL`      | sim         | —             | URL de conexão PostgreSQL usada pelo Prisma |
 | `NODE_ENV`          | não         | `development` | `development`, `production` ou `test`       |
 | `PORT`              | não         | `3000`        | Porta HTTP da API                           |
@@ -91,7 +94,7 @@ O `Dockerfile` é multi-stage. O target `development` é usado pelo compose; o t
 
 ```bash
 docker build --target production -t urbizzi-backend .
-docker run --rm -p 3000:3000 -e DATABASE_URL=postgresql://... urbizzi-backend
+docker run --rm -p 3000:3000 -e DATABASE_URL=postgresql://... -e JWT_SECRET=<segredo-aleatorio> urbizzi-backend
 ```
 
 A imagem de produção não inclui o Prisma CLI; as migrations devem ser aplicadas no pipeline de deploy com `npm run db:deploy`.

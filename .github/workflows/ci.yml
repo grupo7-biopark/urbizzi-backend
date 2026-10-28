@@ -61,6 +61,7 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     env:
+      JWT_SECRET: segredo-ficticio-exclusivo-do-ci-com-32-caracteres
       NODE_ENV: test
       DATABASE_URL: postgresql://urbizzi:urbizzi@localhost:5432/urbizzi_test?schema=public
     steps:

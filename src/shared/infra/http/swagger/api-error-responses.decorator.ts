@@ -3,6 +3,8 @@ import { ApiResponse } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../dto/error-response.dto.js';
 
 const DESCRIPTIONS: Partial<Record<HttpStatus, string>> = {
+  [HttpStatus.TOO_MANY_REQUESTS]:
+    'Muitas requisições; tente novamente mais tarde',
   [HttpStatus.BAD_REQUEST]: 'Dados inválidos (code DADOS_INVALIDOS)',
   [HttpStatus.UNAUTHORIZED]: 'Token ausente ou inválido',
   [HttpStatus.FORBIDDEN]: 'Perfil sem permissão para a ação',
