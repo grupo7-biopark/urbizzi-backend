@@ -9,5 +9,15 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      // Cobertura mínima exigida em docs/testing.md
+      include: [
+        'src/modules/**/domain/**/*.ts',
+        'src/modules/**/application/**/*.ts',
+      ],
+      thresholds: { lines: 80, branches: 80 },
+    },
   },
 });
