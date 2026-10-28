@@ -1,6 +1,6 @@
 # Segurança
 
-> Status: autenticação (BE-07) implementada. Recuperação de senha (BE-08) e autorização por perfil (BE-09) continuam previstas. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
+> Status: autenticação (BE-07) e autorização por perfil (BE-09) implementadas. Recuperação de senha (BE-08) continua prevista. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
 
 ## Autenticação
 
@@ -39,36 +39,29 @@
 A implementação fica em `src/shared/infra/auth/` (BE-07/BE-09):
 
 1. **`JwtAuthGuard` global** (registrado como `APP_GUARD`): toda rota exige token válido. Rotas abertas são marcadas explicitamente com `@Public()` (ex.: login, recuperação de senha, `GET /health`, mapa público por token).
-2. **`PerfisGuard` global** (segundo `APP_GUARD`): lê o decorator `@Perfis(...)` do método ou do controller. Sem `@Perfis`, a rota é permitida a qualquer usuário autenticado. Com `@Perfis`, o perfil do usuário precisa estar na lista; caso contrário, `403 ACESSO_NEGADO`.
+2. **`PerfisGuard` global** (segundo `APP_GUARD`): lê o decorator `@Perfis(...)` do método ou do controller. Sem `@Perfis`, a rota é permitida a qualquer usuário autenticado. A lista do método substitui a do controller; `@Perfis()` com lista vazia nega todos. Com `@Perfis`, o perfil atual do usuário precisa estar na lista; caso contrário, `403 ACESSO_NEGADO`. Rotas `@Public()` dispensam os dois guards. O guard de perfis é registrado depois do guard JWT, preservando 401 para ausência de autenticação.
 3. **`ADMINISTRADOR` não é coringa automático**: inclua-o explicitamente em `@Perfis` quando ele puder executar a ação. Assim a matriz abaixo é a fonte de verdade e o código fica igual a ela.
 4. **Regras de propriedade** (ex.: Comercial só altera as próprias reservas) não ficam no guard, que não conhece o recurso. Ficam em uma **policy** no `domain/policies/` do módulo, chamada pelo service depois de carregar o recurso:
 
 ```ts
 // src/modules/reservas/domain/policies/reserva-propriedade.policy.ts (ilustrativo)
-import { ForbiddenError } from '../../../../shared/domain/errors/domain.error.js';
+import { PropriedadePolicy } from '../../../../shared/domain/policies/propriedade.policy.js';
+import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
 import type { Reserva } from '../models/reserva.entity.js';
-
-export interface UsuarioAutenticado {
-  id: string;
-  perfil: 'ADMINISTRADOR' | 'GESTOR' | 'COMERCIAL' | 'CONSULTA';
-}
 
 export class ReservaPropriedadePolicy {
   static assertPodeAlterar(usuario: UsuarioAutenticado, reserva: Reserva): void {
-    if (usuario.perfil === 'COMERCIAL' && reserva.vendedorId !== usuario.id) {
-      throw new ForbiddenError(
-        'RESERVA_DE_OUTRO_VENDEDOR',
-        'Você só pode alterar as suas próprias reservas',
-      );
-    }
+    PropriedadePolicy.assertPodeAlterar(usuario, reserva.vendedorId);
   }
 }
 ```
 
+`PropriedadePolicy.assertPodeAlterar(usuario, responsavelId)` é uma base reutilizável de `shared/domain/policies`: permite Administrador/Gestor explicitamente, permite Comercial somente quando é responsável e nega Consulta. Lança `ForbiddenError('ACESSO_NEGADO', ...)` sem dados do recurso. Use apenas nas ações cuja matriz permite esses perfis (reservas, propostas ou links); ela não substitui `@Perfis` nem implementa a regra de todas as ações do sistema. Policies de domínio podem compor essa base com suas regras específicas. O service carrega o recurso e chama a policy antes de alterar dados; o guard não consulta propriedade.
+
 ```ts
 // controller
 @Post(':id/renovar')
-@Perfis(Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.COMERCIAL)
+@Perfis('ADMINISTRADOR', 'GESTOR', 'COMERCIAL')
 renovar(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() usuario: UsuarioAutenticado) {
   return this.reservaService.renovar(id, usuario);
 }

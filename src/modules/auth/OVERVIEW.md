@@ -1,6 +1,6 @@
 # Autenticação
 
-Implementa RF01 e RNF05. Depende de `usuarios` e usa somente o `UsuarioService` exportado; é dono de `Sessao` e `TokenRecuperacaoSenha` (recuperação na BE-08).
+Implementa RF01/RNF05 e fornece a infraestrutura de autorização RF04/RNF06 (BE-09). Depende de `usuarios` e usa somente o `UsuarioService` exportado; é dono de `Sessao` e `TokenRecuperacaoSenha` (recuperação na BE-08).
 
 | Método | Rota | Perfis | Resultado |
 | --- | --- | --- | --- |
@@ -22,3 +22,11 @@ Login e refresh têm limite de 5 tentativas por IP/rota por minuto (memória loc
 - 429 `MUITAS_REQUISICOES`: limite de tentativas.
 
 Configuração e orientações de uso em `docs/security.md`, `.env.example` e README. Dependências novas: `argon2` para hash de senha, `@nestjs/jwt` para JWT e `@nestjs/throttler` para limite de tentativas.
+
+## Autorização (BE-09)
+
+O módulo registra PerfisGuard global após JwtAuthGuard. `@Perfis(...)` restringe a rota aos perfis declarados; método substitui controller, lista vazia nega todos, ausência de decorator permite qualquer autenticado. `@Public()` dispensa ambos. Administrador deve aparecer explicitamente na lista.
+
+403 ACESSO_NEGADO é a resposta padronizada para perfil não permitido ou propriedade negada. O perfil é o atual consultado pelo guard JWT, não o valor antigo do token. Policies de domínio podem usar `shared/domain/policies/propriedade.policy.ts` para permitir Admin/Gestor ou Comercial responsável; Consulta nunca altera. A matriz completa e exemplos estão em `docs/security.md`.
+
+Não há endpoints de exemplo na API de produção: as rotas usadas para comprovar a matriz/propriedade são fixtures apenas do teste e2e. Nenhuma rota de recuperação de senha ou CRUD de outros módulos é antecipada.
