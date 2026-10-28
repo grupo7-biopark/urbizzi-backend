@@ -74,12 +74,16 @@ npm run start:dev
 | `npm run format`       | Formata o código com Prettier                   |
 | `npm test`             | Testes unitários ([Vitest](https://vitest.dev)) |
 | `npm run test:e2e`     | Testes e2e (precisam do Postgres rodando)       |
-| `npm run test:cov`     | Testes unitários com cobertura                  |
+| `npm run test:cov`     | Testes unitários com cobertura (mínimo 80% em `domain/` e `application/`) |
 | `npm run db:generate`  | Gera o Prisma Client em `src/generated/prisma`  |
 | `npm run db:migrate`   | Cria/aplica migrations em desenvolvimento       |
 | `npm run db:deploy`    | Aplica migrations pendentes (CI/produção)       |
 
 Para rodar comandos dentro do container: `docker compose exec api npm run db:migrate`.
+
+## Integração contínua
+
+Todo Pull Request e todo push na `main` rodam o workflow [CI](.github/workflows/ci.yml) no GitHub Actions: lint, formatação, build e testes unitários com cobertura em um job, e testes e2e contra um Postgres próprio em outro. Detalhes em [docs/testing.md](docs/testing.md#integração-contínua).
 
 ## Imagem de produção
 

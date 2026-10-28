@@ -100,4 +100,4 @@ Formato: `<tipo>(<escopo>): <descrição>`
 - Título: `[BE-NN] <título da issue>`.
 - Corpo: o template de `.github/PULL_REQUEST_TEMPLATE.md` preenchido, com `Closes #<número>`.
 - Revisão de pelo menos um integrante (dois para mudanças de arquitetura ou de `docs/`).
-- O CI (BE-03) precisa estar verde antes do merge.
+- Os dois jobs do CI (`Lint, build e testes unitários` e `Testes e2e`) precisam estar verdes antes do merge (ver [testing.md](testing.md#integração-contínua)).
