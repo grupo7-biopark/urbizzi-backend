@@ -186,7 +186,7 @@ O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, e
 
 ## Exemplo completo: módulo `loteamentos`
 
-Exemplo **ilustrativo** de um módulo com uma entidade, usado como referência de forma. Os campos reais de `Loteamento` serão definidos na BE-04/BE-14. Todos os caminhos são relativos a `src/modules/loteamentos/`.
+Exemplo **ilustrativo** de um módulo com uma entidade, usado como referência de **forma** (camadas, nomes, decorators, testes). Os campos dele (`cidade`, `uf`) e a regra de nome único **não** são os do model real: o `Loteamento` do banco tem `nome`, `descricao` e `localizacao` (ver `prisma/schema.prisma`). Ao implementar um módulo, use sempre os campos do schema e as regras do escopo. Todos os caminhos são relativos a `src/modules/loteamentos/`.
 
 ### Prisma (`prisma/schema.prisma`)
 

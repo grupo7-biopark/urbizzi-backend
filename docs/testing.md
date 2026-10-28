@@ -46,12 +46,18 @@ Regras garantidas pelo banco (índices únicos parciais, concorrência, rollback
 
 - Localmente, os e2e usam o banco do `.env` (o mesmo do `docker compose`).
 - No CI, os e2e rodam contra um Postgres 17 próprio (service container, banco `urbizzi_test`), criado vazio a cada execução e com as migrations aplicadas por `npm run db:deploy` antes dos testes (ver [Integração contínua](#integração-contínua)).
-- Cada arquivo e2e limpa as tabelas que usa no `beforeEach`, com `TRUNCATE ... RESTART IDENTITY CASCADE`, em vez de depender da ordem dos testes:
+- Todo arquivo e2e que grava no banco chama `limparBanco(prisma)` (`test/helpers/database.ts`) no `beforeEach`. Ele esvazia todas as tabelas (menos o controle de migrations), então nenhum teste depende da ordem nem de dados deixados por outro:
 
 ```ts
-const prisma = app.get(PrismaService);
-await prisma.$executeRawUnsafe('TRUNCATE TABLE "loteamentos" RESTART IDENTITY CASCADE');
+import { limparBanco } from '../helpers/database.js';
+
+beforeEach(async () => {
+  await limparBanco(app.get(PrismaService));
+});
 ```
+
+- Por isso os arquivos e2e rodam **em sequência** (`fileParallelism: false` em `vitest.config.e2e.ts`); os testes dentro de um arquivo também são sequenciais.
+- Testes que dependem de dados obrigatórios do seed (perfis, configurações) criam esses dados no próprio teste, até a BE-05 oferecer um helper de seed.
 
 - Nunca rode e2e apontando para banco de produção.
 
@@ -171,6 +177,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module.js';
 import { setupApp } from '../../src/app.setup.js';
 import { PrismaService } from '../../src/shared/infra/database/prisma.service.js';
+import { limparBanco } from '../helpers/database.js';
 
 describe('Loteamentos (e2e)', () => {
   let app: INestApplication<App>;
@@ -185,7 +192,7 @@ describe('Loteamentos (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('TRUNCATE TABLE "loteamentos" RESTART IDENTITY CASCADE');
+    await limparBanco(prisma);
   });
 
   afterAll(async () => {

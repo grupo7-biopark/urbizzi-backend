@@ -70,6 +70,9 @@ model ReservaRenovacao {
 | Status | `enum` do Prisma |
 | Documento (CPF/CNPJ) | `String @db.VarChar(14)`, só dígitos |
 | Dados flexíveis (auditoria) | `Json` |
+| Coordenadas normalizadas da planta (`Marcador.x`/`y`, entre 0 e 1) | `Float` (única exceção: não é valor exato, é posição na imagem) |
+| Contadores e dimensões em pixels | `Int` |
+| Configuração chave/valor (`Configuracao.valor`) | `String @db.VarChar(255)`, convertido pelo módulo `configuracoes` |
 
 Nunca use `Float` para dinheiro ou medidas.
 
@@ -96,26 +99,51 @@ enum StatusLote {
 | `HistoricoAuditoria` | imutável: sem update e sem delete. |
 | Dados técnicos sem histórico (`TokenRecuperacaoSenha`, `Marcador`, `LinkPublico` desativado há tempo) | exclusão física (`delete`). |
 
-Com soft delete, unicidade tem que ignorar os excluídos: crie um índice único parcial (`... WHERE deleted_at IS NULL`) por migration SQL customizada em vez de `@@unique`.
+Com soft delete, a unicidade tem que ignorar os excluídos: use `@@unique` com `where: { deletedAt: null }` (ver abaixo).
 
 ### Índices e restrições
 
 - `@@unique` para toda regra de unicidade do domínio (e-mail do usuário, documento do cliente, `(loteamentoId, numero)` da quadra etc.). A regra é garantida pelo banco, não só pelo código.
 - `@@index` para colunas usadas em filtros e ordenação frequentes e para toda chave estrangeira.
-- Regras que o Prisma não expressa (índice único parcial, `CHECK`) vão em SQL na migration, com comentário no schema indicando onde estão:
+- **Índices parciais** são declarados no próprio schema, com o argumento `where` (preview feature `partialIndexes`, habilitada no `generator`). Use a sintaxe de objeto, que o Prisma valida pelo tipo do campo, e dê nome explícito com `map`. Não crie índice parcial em SQL avulso na migration: o Prisma não o conheceria e tentaria removê-lo na migration seguinte.
 
 ```prisma
-model Reserva {
-  // ...
-  // Índice único parcial "reservas_lote_id_ativa_key" (no máximo uma reserva ATIVA por lote)
-  // criado em SQL na migration <timestamp>_create_reservas.
-}
+// RN01: no máximo uma reserva ATIVA por lote
+@@unique([loteId], map: "reservas_lote_id_ativa_key", where: { status: "ATIVA" })
+
+// Unicidade só entre registros não excluídos
+@@unique([quadraId, numero], map: "lotes_quadra_id_numero_key", where: { deletedAt: null })
 ```
+
+- **`CHECK` constraints** não são suportadas pelo schema do Prisma: vão em SQL no final do `migration.sql` (criado com `--create-only`), com nome `<tabela>_<coluna>_check`, e são indicadas com um comentário `/// CHECK em SQL: ...` acima do model. O Prisma ignora `CHECK` ao comparar schema e banco, então elas não geram migrations de remoção.
+- Violação de `CHECK` chega à aplicação como erro do Prisma com o nome da constraint na mensagem. A validação do DTO deve impedir que isso aconteça; o `CHECK` é a última barreira.
+
+Restrições atuais:
+
+| Tabela | Restrição | Tipo | Regra |
+| --- | --- | --- | --- |
+| `usuarios` | `usuarios_email_key` | unique | e-mail único |
+| `quadras` | `quadras_loteamento_id_numero_key` | unique parcial (`deleted_at IS NULL`) | número da quadra único por loteamento |
+| `lotes` | `lotes_quadra_id_numero_key` | unique parcial (`deleted_at IS NULL`) | RN21 |
+| `lotes` | `lotes_area_m2_check`, `lotes_valor_check` | check | área > 0, valor ≥ 0 |
+| `clientes` | `clientes_documento_key` | unique parcial (`deleted_at IS NULL`) | documento único |
+| `clientes` | `clientes_documento_check` | check | 11 ou 14 dígitos |
+| `reservas` | `reservas_lote_id_ativa_key` | unique parcial (`status = 'ATIVA'`) | RN01, RNF04 |
+| `reservas` | `reservas_data_vencimento_check` | check | vencimento depois do início |
+| `propostas` | `propostas_reserva_id_em_analise_key` | unique parcial (`status = 'EM_ANALISE'`) | RN08 |
+| `propostas` | `propostas_valor_check`, `propostas_decisao_check` | check | valor > 0; decisão com gestor, data e motivo (RN10) |
+| `plantas` | `plantas_versao_key`, `plantas_ativa_key` | unique; unique parcial (`ativa = true`) | versão única; só uma planta ativa |
+| `marcadores` | `marcadores_planta_id_lote_id_key` | unique | um marcador por lote por planta |
+| `marcadores` | `marcadores_x_check`, `marcadores_y_check` | check | coordenadas entre 0 e 1 |
+| `links_publicos` | `links_publicos_token_key` | unique | token único |
+| `tokens_recuperacao_senha` | `tokens_recuperacao_senha_token_hash_key` | unique | hash do token único |
+
+Essas restrições são testadas em `test/database/schema-constraints.e2e-spec.ts`.
 
 ## Migrations
 
 - Criar e aplicar em desenvolvimento: `npm run db:migrate -- --name <verbo>_<descricao>` (ex.: `create_loteamentos`, `add_status_to_lotes`).
-- Migration com SQL customizado: `npx prisma migrate dev --create-only --name <nome>`, edite o `migration.sql` gerado, depois `npm run db:migrate`.
+- Migration com SQL customizado (ex.: `CHECK`): `npx prisma migrate dev --create-only --name <nome>`, edite o `migration.sql` gerado, depois `npm run db:migrate`. Depois de aplicar, rode `npx prisma migrate dev --create-only --name drift_check`: a migration gerada precisa sair vazia (apague-a em seguida); se não sair, o schema e o SQL divergiram.
 - Aplicar em CI/produção: `npm run db:deploy` (nunca `migrate dev`). O container de desenvolvimento roda `prisma migrate deploy` ao subir.
 - **Nunca edite** uma migration que já está na `main`; crie uma nova.
 - Uma migration por PR sempre que possível, com o mesmo escopo do PR.
@@ -168,4 +196,160 @@ Seeds ficam em `prisma/seed/` (BE-05), são idempotentes (`upsert` por chave nat
 
 ## Diagrama ER
 
-Será preenchido na BE-04, em Mermaid (`erDiagram`), com todas as entidades do escopo v2.
+Modelo do escopo v2 (seção "Modelo de dados revisado" de [Urbizzi - Escopo do Sistema v2](Urbizzi%20-%20Escopo%20do%20Sistema%20v2.md)). Nomes em `snake_case`, como no banco. Timestamps (`created_at`, `updated_at`, `deleted_at`) omitidos para legibilidade; ver `prisma/schema.prisma`.
+
+```mermaid
+erDiagram
+  perfis ||--o{ usuarios : "define"
+  usuarios ||--o{ tokens_recuperacao_senha : "solicita"
+  usuarios ||--o{ reservas : "vende"
+  usuarios ||--o{ reserva_renovacoes : "renova"
+  usuarios ||--o{ propostas : "envia"
+  usuarios |o--o{ propostas : "decide"
+  usuarios ||--o{ plantas : "envia"
+  usuarios ||--o{ links_publicos : "gera"
+  usuarios |o--o{ historico_auditoria : "altera"
+  loteamentos ||--o{ quadras : "contém"
+  loteamentos |o--o{ links_publicos : "filtra"
+  quadras ||--o{ lotes : "contém"
+  lotes ||--o{ reservas : "é reservado"
+  clientes ||--o{ reservas : "reserva"
+  reservas ||--o{ reserva_renovacoes : "é renovada"
+  reservas ||--o{ propostas : "recebe"
+  plantas ||--o{ marcadores : "posiciona"
+  lotes ||--o{ marcadores : "é marcado"
+
+  perfis {
+    uuid id PK
+    perfil_codigo codigo UK "ADMINISTRADOR, GESTOR, COMERCIAL, CONSULTA"
+    varchar nome UK
+  }
+  usuarios {
+    uuid id PK
+    varchar nome
+    varchar email UK
+    varchar senha_hash
+    uuid perfil_id FK
+    boolean ativo
+  }
+  tokens_recuperacao_senha {
+    uuid id PK
+    uuid usuario_id FK
+    char token_hash UK
+    timestamptz expira_em
+    timestamptz usado_em
+  }
+  configuracoes {
+    uuid id PK
+    varchar chave UK "prazo_reserva_dias, prazo_analise_dias_uteis"
+    varchar valor
+  }
+  historico_auditoria {
+    uuid id PK
+    uuid usuario_id FK "nulo = sistema"
+    varchar entidade_tipo
+    uuid entidade_id "referência polimórfica"
+    varchar acao
+    jsonb valor_anterior
+    jsonb valor_novo
+    text motivo
+  }
+  loteamentos {
+    uuid id PK
+    varchar nome
+    text descricao
+    varchar localizacao
+  }
+  quadras {
+    uuid id PK
+    uuid loteamento_id FK
+    varchar numero "único por loteamento"
+  }
+  lotes {
+    uuid id PK
+    uuid quadra_id FK
+    varchar numero "único por quadra (RN21)"
+    decimal area_m2
+    decimal valor
+    boolean exibir_valor_publico
+    status_lote status "DISPONIVEL, RESERVADO, VENDIDO, BLOQUEADO"
+    text observacoes
+  }
+  clientes {
+    uuid id PK
+    varchar nome
+    varchar documento UK "CPF ou CNPJ, só dígitos"
+    varchar telefone
+    varchar email
+    text observacoes
+  }
+  reservas {
+    uuid id PK
+    uuid lote_id FK "uma ATIVA por lote (RN01)"
+    uuid cliente_id FK
+    uuid vendedor_id FK
+    timestamptz data_inicio
+    timestamptz data_vencimento
+    status_reserva status "ATIVA, CANCELADA, EXPIRADA, CONVERTIDA"
+    text motivo_encerramento
+  }
+  reserva_renovacoes {
+    uuid id PK
+    uuid reserva_id FK
+    uuid usuario_id FK
+    timestamptz vencimento_anterior
+    timestamptz vencimento_novo
+  }
+  propostas {
+    uuid id PK
+    uuid reserva_id FK "uma EM_ANALISE por reserva (RN08)"
+    uuid vendedor_id FK
+    decimal valor
+    text condicoes
+    text observacoes
+    status_proposta status "EM_ANALISE, APROVADA, REJEITADA"
+    timestamptz data_envio
+    timestamptz prazo_limite
+    uuid decidido_por_id FK
+    timestamptz data_decisao
+    text motivo_decisao
+  }
+  plantas {
+    uuid id PK
+    varchar nome
+    int versao UK
+    status_planta status "ENVIADA, PROCESSANDO, PRONTA, ERRO"
+    int largura_px
+    int altura_px
+    varchar tiles_path
+    int max_zoom
+    boolean ativa "só uma ativa"
+    uuid criado_por_id FK
+  }
+  marcadores {
+    uuid id PK
+    uuid planta_id FK
+    uuid lote_id FK "um por lote por planta"
+    float x "0 a 1"
+    float y "0 a 1"
+  }
+  links_publicos {
+    uuid id PK
+    varchar token UK
+    uuid criado_por_id FK
+    uuid loteamento_id FK "nulo = todos"
+    boolean ativo
+    int acessos
+  }
+```
+
+Decisões de modelagem em relação ao escopo v2:
+
+- `Perfil` tem `codigo` (enum `PerfilCodigo`, usado pelos guards) e `nome` (exibição).
+- `Configuracao` tem `id` uuid além de `chave` única, seguindo a regra de chave uuid em todas as tabelas.
+- `HistoricoAuditoria.usuarioId` é opcional, para alterações feitas pelo sistema (expiração automática de reservas).
+- `Lote.valor` é opcional (lote ainda sem preço definido).
+- `Loteamento`, `Quadra`, `Lote` e `Cliente` têm `deletedAt` (soft delete), e as unicidades deles valem só entre os não excluídos.
+- `Planta.versao` é única, e o índice parcial garante uma única planta `ativa`.
+- `TokenRecuperacaoSenha` guarda o hash do token, nunca o token (ver [security.md](security.md#recuperação-de-senha-be-08)).
+- Motivo de bloqueio do lote (RN15) e de cancelamento são registrados no `historico_auditoria` (`motivo`) e, no caso da reserva, também em `motivo_encerramento`.
