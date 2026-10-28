@@ -56,7 +56,9 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `mapa`, `auditoria` | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 
-Recursos de `shared` previstos: autenticação/autorização (`shared/infra/auth`, BE-07/BE-09), armazenamento S3 (`shared/infra/storage`, BE-29), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
+Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em [storage.md](storage.md). Contrato `Storage` e token `STORAGE` ficam em `shared/application/storage`, com helper para geração de chaves. Os módulos consumidores importam `StorageModule` e injetam o contrato na camada application, sem importar AWS SDK. Esta infraestrutura técnica não possui tabela nem endpoints próprios.
+
+Recursos de `shared` previstos: autenticação/autorização (`shared/infra/auth`, BE-07/BE-09), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
 
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
 

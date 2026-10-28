@@ -61,6 +61,9 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     env:
+      S3_ACCESS_KEY_ID: GK0123456789abcdef0123456789abcdef
+      S3_SECRET_ACCESS_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      S3_ENDPOINT: http://localhost:3900
       NODE_ENV: test
       DATABASE_URL: postgresql://urbizzi:urbizzi@localhost:5432/urbizzi_test?schema=public
     steps:
@@ -80,5 +83,12 @@ jobs:
       - name: Aplicar migrations
         run: npm run db:deploy
 
+      - name: Subir Garage e aguardar inicialização dos buckets
+        run: docker compose up -d --build --wait --wait-timeout 120 garage
+
       - name: Testes e2e
         run: npm run test:e2e
+
+      - name: Encerrar Garage
+        if: always()
+        run: docker compose down

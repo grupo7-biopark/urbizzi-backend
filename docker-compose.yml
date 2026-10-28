@@ -16,6 +16,30 @@ services:
       timeout: 3s
       retries: 20
 
+  garage:
+    build:
+      context: .
+      dockerfile: docker/garage/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Valores fictícios exclusivos do ambiente local; configure segredos no deploy.
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789}
+      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-GK0123456789abcdef0123456789abcdef}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      S3_BUCKET_ORIGINAIS: ${S3_BUCKET_ORIGINAIS:-plantas-originais}
+      S3_BUCKET_TILES: ${S3_BUCKET_TILES:-plantas-tiles}
+    ports:
+      - '127.0.0.1:${GARAGE_S3_PORT:-3900}:3900'
+    volumes:
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    healthcheck:
+      test: ['CMD-SHELL', 'test -f /tmp/garage-ready && /garage status >/dev/null 2>&1']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
   api:
     build:
       context: .
@@ -29,6 +53,15 @@ services:
       # Polling: eventos de arquivo não atravessam bind mounts no Docker Desktop (Windows/macOS)
       TSC_WATCHFILE: DynamicPriorityPolling
       TSC_WATCHDIRECTORY: DynamicPriorityPolling
+      S3_ENDPOINT: http://garage:3900
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:3900}
+      S3_URL_EXPIRES_IN: ${S3_URL_EXPIRES_IN:-900}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-GK0123456789abcdef0123456789abcdef}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      S3_BUCKET_ORIGINAIS: ${S3_BUCKET_ORIGINAIS:-plantas-originais}
+      S3_BUCKET_TILES: ${S3_BUCKET_TILES:-plantas-tiles}
       PORT: ${PORT:-3000}
       DATABASE_URL: postgresql://${POSTGRES_USER:-urbizzi}:${POSTGRES_PASSWORD:-urbizzi}@postgres:5432/${POSTGRES_DB:-urbizzi}?schema=public
     ports:
@@ -38,8 +71,12 @@ services:
       - ./test:/usr/src/app/test
       - ./prisma:/usr/src/app/prisma
     depends_on:
+      garage:
+        condition: service_healthy
       postgres:
         condition: service_healthy
 
 volumes:
+  garage_meta:
+  garage_data:
   postgres_data:

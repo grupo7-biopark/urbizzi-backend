@@ -16,6 +16,8 @@ export default defineConfig({
       include: [
         'src/modules/**/domain/**/*.ts',
         'src/modules/**/application/**/*.ts',
+        'src/shared/application/storage/**/*.ts',
+        'src/shared/infra/storage/**/*.ts',
       ],
       thresholds: { lines: 80, branches: 80 },
     },
