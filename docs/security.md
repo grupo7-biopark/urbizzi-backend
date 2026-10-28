@@ -1,6 +1,6 @@
 # Segurança
 
-> Status: autenticação (BE-07), recuperação de senha (BE-08) e autorização (BE-09) **ainda não estão implementadas**. Este documento define como elas devem ser feitas. A matriz de permissões abaixo é um **rascunho inferido das issues** e precisa ser validada contra o documento *Urbizzi - Escopo do Sistema v2* na BE-09.
+> Status: autenticação (BE-07), recuperação de senha (BE-08) e autorização (BE-09) **ainda não estão implementadas**. Este documento define como elas devem ser feitas. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
 
 ## Autenticação
 
@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | Administrador | `ADMINISTRADOR` | configura o sistema e gerencia usuários; tudo o que o Gestor faz |
 | Gestor | `GESTOR` | gerencia cadastros, planta e links públicos; analisa propostas; vê auditoria e painel |
-| Comercial | `COMERCIAL` | vendedor: cadastra clientes, cria e gerencia as **próprias** reservas e propostas |
+| Comercial | `COMERCIAL` | vendedor: cadastra clientes, cria e gerencia as **próprias** reservas e propostas, gera links públicos |
 | Consulta | `CONSULTA` | somente leitura do mapa, dos lotes e do painel |
 
 ### Estratégia
@@ -87,30 +87,32 @@ ReservaPropriedadePolicy.assertPodeAlterar(usuario, reserva);
 }
 ```
 
-### Matriz de permissões (rascunho, validar na BE-09)
+### Matriz de permissões
+
+Fonte: seção "Perfis e permissões" do [escopo v2](<Urbizzi - Escopo do Sistema v2.md#perfis-e-permissões>). As linhas marcadas com † não estão na tabela do escopo e são **interpretações** do grupo a partir dos requisitos citados.
 
 Legenda: ✅ permitido · 👤 permitido só para os próprios registros · — negado
 
 | Ação | Administrador | Gestor | Comercial | Consulta |
 | --- | --- | --- | --- | --- |
-| Gerenciar usuários | ✅ | — | — | — |
-| Ver/alterar configurações (prazos) | ✅ | ver | — | — |
-| Ver loteamentos, quadras e lotes | ✅ | ✅ | ✅ | ✅ |
-| Criar/editar/excluir loteamentos, quadras e lotes; importar planilha | ✅ | ✅ | — | — |
-| Bloquear/desbloquear lote | ✅ | ✅ | — | — |
-| Ver clientes | ✅ | ✅ | ✅ | — |
-| Criar/editar clientes | ✅ | ✅ | ✅ | — |
-| Criar reserva | ✅ | ✅ | ✅ (vendedor = ele mesmo) | — |
-| Renovar/cancelar reserva | ✅ | ✅ | 👤 | — |
-| Listar reservas | ✅ | ✅ | ✅ (+ "Minhas reservas") | — |
-| Criar proposta | ✅ | ✅ | 👤 (sobre reserva própria) | — |
-| Aprovar/rejeitar proposta; ver pendências | ✅ | ✅ | — | — |
-| Marcar lote como vendido | ✅ | ✅ | — | — |
-| Upload/nova versão da planta; marcadores | ✅ | ✅ | — | — |
-| Ver mapa interno | ✅ | ✅ | ✅ | ✅ |
-| Gerar/desativar links públicos | ✅ | ✅ | — | — |
-| Ver histórico de auditoria | ✅ | ✅ | — | — |
-| Ver painel de indicadores | ✅ | ✅ | ✅ | ✅ |
+| Gerenciar usuários e configurações (prazos) | ✅ | — | — | — |
+| Cadastrar, editar e excluir loteamentos, quadras e lotes; importar planilha | ✅ | ✅ | — | — |
+| Enviar planta e posicionar marcadores | ✅ | ✅ | — | — |
+| Cadastrar e editar clientes | ✅ | ✅ | ✅ | — |
+| Ver e buscar clientes † (RF12, RNF08) | ✅ | ✅ | ✅ | — |
+| Reservar, renovar e cancelar reserva (RN07) | ✅ | ✅ | 👤 (vendedor da reserva) | — |
+| Listar reservas † ("Minhas reservas", RF19) | ✅ | ✅ | ✅ | — |
+| Criar proposta | ✅ | ✅ | 👤 (sobre as suas reservas) | — |
+| Acompanhar propostas † (RF23) | ✅ | ✅ | 👤 | — |
+| Aprovar ou rejeitar proposta; ver pendências | ✅ | ✅ | — | — |
+| Marcar lote como Vendido (RN14) | ✅ | ✅ | — | — |
+| Bloquear e desbloquear lote (RN14) | ✅ | ✅ | — | — |
+| Gerar link público | ✅ | ✅ | ✅ | — |
+| Desativar link público † (RF38) | ✅ | ✅ | 👤 (links que gerou) | — |
+| Ver mapa, lotes e painel | ✅ | ✅ | ✅ | ✅ |
+| Ver histórico de alterações | ✅ | ✅ | 👤 (dos seus registros) | — |
+
+"Dos seus registros", no histórico, significa as entradas de auditoria de reservas e propostas em que o usuário é o vendedor. A regra exata é definida na BE-13.
 
 Ao implementar cada módulo, a coluna "Perfis" da tabela de endpoints do `OVERVIEW.md` precisa bater com esta matriz.
 
