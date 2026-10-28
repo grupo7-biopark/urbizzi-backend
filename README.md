@@ -1,0 +1,107 @@
+# Urbizzi Backend
+
+API do Urbizzi construída com [NestJS](https://docs.nestjs.com) (TypeScript `strict`, ESM), [Prisma ORM](https://www.prisma.io/docs) e PostgreSQL, rodando em containers Docker.
+
+## Requisitos
+
+- [Docker](https://docs.docker.com/get-docker/) com Docker Compose v2.24+
+- [Node.js](https://nodejs.org) 24+ e npm (apenas para rodar comandos fora do container: lint, testes, Prisma CLI)
+
+## Subindo o ambiente (do zero)
+
+```bash
+git clone https://github.com/grupo7-biopark/urbizzi-backend.git
+cd urbizzi-backend
+cp .env.example .env        # opcional: o compose tem valores padrão
+docker compose up --build
+```
+
+Isso sobe dois serviços:
+
+| Serviço    | Descrição                                                        | Porta  |
+| ---------- | ---------------------------------------------------------------- | ------ |
+| `postgres` | PostgreSQL 17 com volume persistente (`postgres_data`) e healthcheck | `5432` |
+| `api`      | API NestJS em modo desenvolvimento com hot reload                 | `3000` |
+
+A API só inicia depois que o Postgres estiver saudável, aplica as migrations pendentes (`prisma migrate deploy`) e fica observando alterações em `src/`.
+
+Depois de subir:
+
+- Health check: <http://localhost:3000/health>
+- Documentação Swagger: <http://localhost:3000/docs> (JSON em `/docs-json`)
+
+Para parar: `docker compose down` (adicione `-v` para apagar os dados do banco).
+
+## Variáveis de ambiente
+
+Todas estão documentadas em [`.env.example`](.env.example). As variáveis da aplicação são validadas na inicialização (`src/config/env.validation.ts`, com Zod via `@nestjs/config`); se alguma obrigatória faltar ou for inválida, a aplicação não inicia e mostra quais variáveis estão com problema:
+
+```
+Error: Variáveis de ambiente inválidas:
+  - DATABASE_URL: variável obrigatória não definida
+```
+
+| Variável            | Obrigatória | Padrão        | Descrição                                   |
+| ------------------- | ----------- | ------------- | ------------------------------------------- |
+| `DATABASE_URL`      | sim         | —             | URL de conexão PostgreSQL usada pelo Prisma |
+| `NODE_ENV`          | não         | `development` | `development`, `production` ou `test`       |
+| `PORT`              | não         | `3000`        | Porta HTTP da API                           |
+| `POSTGRES_USER`     | não         | `urbizzi`     | Usuário do Postgres (docker-compose)        |
+| `POSTGRES_PASSWORD` | não         | `urbizzi`     | Senha do Postgres (docker-compose)          |
+| `POSTGRES_DB`       | não         | `urbizzi`     | Banco do Postgres (docker-compose)          |
+| `POSTGRES_PORT`     | não         | `5432`        | Porta do Postgres exposta no host           |
+
+> Dentro do compose, `DATABASE_URL` é montada automaticamente apontando para o serviço `postgres`. O valor do `.env` (com `localhost`) é usado quando a API ou os testes rodam fora do Docker.
+
+> **Já tem um PostgreSQL instalado na máquina?** Ele provavelmente ocupa a porta `5432` e os testes/`start:dev` acabam conectando nele (erro de autenticação ou `/health` com 503). Troque `POSTGRES_PORT` para `5433` no `.env` e ajuste a porta em `DATABASE_URL` (`localhost:5433`).
+
+## Desenvolvimento local (fora do Docker)
+
+```bash
+npm install                 # também roda `prisma generate`
+docker compose up -d postgres
+npm run start:dev
+```
+
+## Scripts
+
+| Script                 | Descrição                                       |
+| ---------------------- | ----------------------------------------------- |
+| `npm run start:dev`    | API com hot reload                              |
+| `npm run build`        | Compila para `dist/`                            |
+| `npm run start:prod`   | Executa o build compilado                       |
+| `npm run lint`         | Lint com [oxlint](https://oxc.rs/docs/guide/usage/linter) |
+| `npm run format`       | Formata o código com Prettier                   |
+| `npm test`             | Testes unitários ([Vitest](https://vitest.dev)) |
+| `npm run test:e2e`     | Testes e2e (precisam do Postgres rodando)       |
+| `npm run test:cov`     | Testes unitários com cobertura                  |
+| `npm run db:generate`  | Gera o Prisma Client em `src/generated/prisma`  |
+| `npm run db:migrate`   | Cria/aplica migrations em desenvolvimento       |
+| `npm run db:deploy`    | Aplica migrations pendentes (CI/produção)       |
+
+Para rodar comandos dentro do container: `docker compose exec api npm run db:migrate`.
+
+## Imagem de produção
+
+O `Dockerfile` é multi-stage. O target `development` é usado pelo compose; o target `production` gera uma imagem enxuta só com dependências de runtime e o `dist/`:
+
+```bash
+docker build --target production -t urbizzi-backend .
+docker run --rm -p 3000:3000 -e DATABASE_URL=postgresql://... urbizzi-backend
+```
+
+A imagem de produção não inclui o Prisma CLI; as migrations devem ser aplicadas no pipeline de deploy com `npm run db:deploy`.
+
+## Estrutura
+
+```
+prisma/              schema e migrations do Prisma
+prisma7.config.ts    configuração do Prisma CLI
+src/
+  config/            validação das variáveis de ambiente
+  health/            GET /health (Terminus + ping no banco)
+  prisma/            PrismaModule / PrismaService (global)
+  app.setup.ts       ValidationPipe global e Swagger
+  main.ts            bootstrap
+test/                testes e2e
+```
