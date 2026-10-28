@@ -44,7 +44,8 @@ Regras garantidas pelo banco (índices únicos parciais, concorrência, rollback
 
 ## Banco de teste
 
-- Hoje os e2e usam o banco do `.env` (o mesmo do `docker compose`). A BE-03 vai introduzir um banco dedicado (`urbizzi_test`) para o CI.
+- Localmente, os e2e usam o banco do `.env` (o mesmo do `docker compose`).
+- No CI, os e2e rodam contra um Postgres 17 próprio (service container, banco `urbizzi_test`), criado vazio a cada execução e com as migrations aplicadas por `npm run db:deploy` antes dos testes (ver [Integração contínua](#integração-contínua)).
 - Cada arquivo e2e limpa as tabelas que usa no `beforeEach`, com `TRUNCATE ... RESTART IDENTITY CASCADE`, em vez de depender da ordem dos testes:
 
 ```ts
@@ -227,7 +228,18 @@ describe('Loteamentos (e2e)', () => {
 - **80% de linhas e de branches** em `src/modules/**/domain/**` e `src/modules/**/application/**`.
 - Todo `code` de erro documentado no `OVERVIEW.md` tem pelo menos um teste que o produz.
 - Todo bug corrigido ganha um teste que falhava antes da correção.
-- A cobertura será verificada no CI a partir da BE-03; até lá, confira com `npm run test:cov` antes do PR.
+- O limite está configurado em `vitest.config.ts` (`coverage.thresholds`): `npm run test:cov` falha abaixo de 80%, localmente e no CI.
+
+## Integração contínua
+
+O workflow `.github/workflows/ci.yml` roda em todo Pull Request e em todo push na `main`, com dois jobs em paralelo:
+
+| Job | Etapas |
+| --- | --- |
+| **Lint, build e testes unitários** | `npm ci` (com cache do npm) → `lint` → `format:check` → `build` → `test:cov` (com limite de cobertura) |
+| **Testes e2e** | Postgres como service container → `npm ci` → `db:generate` → `db:deploy` → `test:e2e` |
+
+Um novo push no mesmo PR cancela a execução anterior. O PR só deve ser mergeado com os dois jobs verdes. Para reproduzir localmente o que o CI faz: `npm run lint && npm run format:check && npm run build && npm run test:cov && npm run test:e2e`.
 
 ## Boas práticas
 

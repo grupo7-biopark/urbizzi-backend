@@ -39,7 +39,7 @@ npm run db:migrate -- --name <nome>      # cria e aplica migration
 npm run db:generate            # regenera o Prisma Client
 ```
 
-Antes de dizer que terminou: `npm run lint && npm run format:check && npm run build && npm test` precisam passar. Se mexeu em controller, rota ou banco, rode também `npm run test:e2e`.
+Antes de dizer que terminou: `npm run lint && npm run format:check && npm run build && npm run test:cov` precisam passar (é o que o CI roda; `test:cov` falha com cobertura abaixo de 80% em `domain/` e `application/`). Se mexeu em controller, rota ou banco, rode também `npm run test:e2e`, que o CI também executa contra um Postgres limpo.
 
 ## Mapa de documentação
 
