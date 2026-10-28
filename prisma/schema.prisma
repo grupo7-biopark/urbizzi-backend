@@ -1,10 +1,385 @@
-// Prisma schema: https://pris.ly/d/prisma-schema
+// Schema único do monolito. Models agrupados por módulo, na ordem do mapa
+// de módulos de docs/architecture.md. Padrões em docs/database.md.
+//
+// Regras que o Prisma não expressa (CHECK) ficam em SQL nas migrations e
+// estão indicadas com comentário em cada model.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ===== auth =====
+
+model TokenRecuperacaoSenha {
+  id        String    @id @default(uuid()) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  // SHA-256 em hexadecimal do token enviado por e-mail (docs/security.md)
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiraEm  DateTime  @map("expira_em") @db.Timestamptz(3)
+  usadoEm   DateTime? @map("usado_em") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@map("tokens_recuperacao_senha")
+}
+
+// ===== usuarios =====
+
+enum PerfilCodigo {
+  ADMINISTRADOR
+  GESTOR
+  COMERCIAL
+  CONSULTA
+
+  @@map("perfil_codigo")
+}
+
+model Perfil {
+  id        String       @id @default(uuid()) @db.Uuid
+  codigo    PerfilCodigo @unique
+  nome      String       @unique @db.VarChar(50)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  usuarios Usuario[]
+
+  @@map("perfis")
+}
+
+model Usuario {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String   @db.VarChar(150)
+  // Sempre gravado em minúsculas pela aplicação
+  email     String   @unique @db.VarChar(254)
+  senhaHash String   @map("senha_hash") @db.VarChar(255)
+  perfilId  String   @map("perfil_id") @db.Uuid
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  perfil                 Perfil                  @relation(fields: [perfilId], references: [id])
+  tokensRecuperacaoSenha TokenRecuperacaoSenha[]
+  reservas               Reserva[]               @relation("ReservaVendedor")
+  renovacoes             ReservaRenovacao[]
+  propostasEnviadas      Proposta[]              @relation("PropostaVendedor")
+  propostasDecididas     Proposta[]              @relation("PropostaDecisor")
+  plantas                Planta[]
+  linksPublicos          LinkPublico[]
+  historicoAuditoria     HistoricoAuditoria[]
+
+  @@index([perfilId])
+  @@map("usuarios")
+}
+
+// ===== configuracoes =====
+
+model Configuracao {
+  id        String   @id @default(uuid()) @db.Uuid
+  // Ex.: prazo_reserva_dias, prazo_analise_dias_uteis
+  chave     String   @unique @db.VarChar(100)
+  valor     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("configuracoes")
+}
+
+// ===== auditoria =====
+
+model HistoricoAuditoria {
+  id            String   @id @default(uuid()) @db.Uuid
+  // Nulo quando a alteração é feita pelo sistema (ex.: expiração automática)
+  usuarioId     String?  @map("usuario_id") @db.Uuid
+  // Referência polimórfica: nome do model + id do registro alterado
+  entidadeTipo  String   @map("entidade_tipo") @db.VarChar(50)
+  entidadeId    String   @map("entidade_id") @db.Uuid
+  acao          String   @db.VarChar(50)
+  valorAnterior Json?    @map("valor_anterior")
+  valorNovo     Json?    @map("valor_novo")
+  motivo        String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidadeTipo, entidadeId, createdAt])
+  @@index([usuarioId, createdAt])
+  @@index([createdAt])
+  @@map("historico_auditoria")
+}
+
+// ===== loteamentos =====
+
+enum StatusLote {
+  DISPONIVEL
+  RESERVADO
+  VENDIDO
+  BLOQUEADO
+
+  @@map("status_lote")
+}
+
+model Loteamento {
+  id          String    @id @default(uuid()) @db.Uuid
+  nome        String    @db.VarChar(150)
+  descricao   String?   @db.Text
+  localizacao String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  quadras       Quadra[]
+  linksPublicos LinkPublico[]
+
+  @@map("loteamentos")
+}
+
+model Quadra {
+  id           String    @id @default(uuid()) @db.Uuid
+  loteamentoId String    @map("loteamento_id") @db.Uuid
+  numero       String    @db.VarChar(20)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  loteamento Loteamento @relation(fields: [loteamentoId], references: [id])
+  lotes      Lote[]
+
+  // Número único por loteamento entre as quadras não excluídas
+  @@unique([loteamentoId, numero], map: "quadras_loteamento_id_numero_key", where: { deletedAt: null })
+  @@index([loteamentoId])
+  @@map("quadras")
+}
+
+/// CHECK em SQL: area_m2 > 0 e valor >= 0 (lotes_area_m2_check, lotes_valor_check)
+model Lote {
+  id                 String     @id @default(uuid()) @db.Uuid
+  quadraId           String     @map("quadra_id") @db.Uuid
+  numero             String     @db.VarChar(20)
+  areaM2             Decimal    @map("area_m2") @db.Decimal(12, 2)
+  valor              Decimal?   @db.Decimal(14, 2)
+  exibirValorPublico Boolean    @default(false) @map("exibir_valor_publico")
+  status             StatusLote @default(DISPONIVEL)
+  observacoes        String?    @db.Text
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  quadra     Quadra     @relation(fields: [quadraId], references: [id])
+  reservas   Reserva[]
+  marcadores Marcador[]
+
+  // RN21: lote único por quadra e número entre os lotes não excluídos
+  @@unique([quadraId, numero], map: "lotes_quadra_id_numero_key", where: { deletedAt: null })
+  @@index([quadraId])
+  @@index([status])
+  @@map("lotes")
+}
+
+// ===== clientes =====
+
+/// CHECK em SQL: documento com 11 ou 14 dígitos (clientes_documento_check)
+model Cliente {
+  id          String    @id @default(uuid()) @db.Uuid
+  nome        String    @db.VarChar(150)
+  // CPF (11) ou CNPJ (14), somente dígitos
+  documento   String    @db.VarChar(14)
+  telefone    String?   @db.VarChar(20)
+  email       String?   @db.VarChar(254)
+  observacoes String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  reservas Reserva[]
+
+  @@unique([documento], map: "clientes_documento_key", where: { deletedAt: null })
+  @@index([nome])
+  @@map("clientes")
+}
+
+// ===== reservas =====
+
+enum StatusReserva {
+  ATIVA
+  CANCELADA
+  EXPIRADA
+  CONVERTIDA
+
+  @@map("status_reserva")
+}
+
+/// CHECK em SQL: data_vencimento > data_inicio (reservas_data_vencimento_check)
+model Reserva {
+  id                 String        @id @default(uuid()) @db.Uuid
+  loteId             String        @map("lote_id") @db.Uuid
+  clienteId          String        @map("cliente_id") @db.Uuid
+  vendedorId         String        @map("vendedor_id") @db.Uuid
+  dataInicio         DateTime      @map("data_inicio") @db.Timestamptz(3)
+  dataVencimento     DateTime      @map("data_vencimento") @db.Timestamptz(3)
+  status             StatusReserva @default(ATIVA)
+  motivoEncerramento String?       @map("motivo_encerramento") @db.Text
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lote       Lote               @relation(fields: [loteId], references: [id])
+  cliente    Cliente            @relation(fields: [clienteId], references: [id])
+  vendedor   Usuario            @relation("ReservaVendedor", fields: [vendedorId], references: [id])
+  renovacoes ReservaRenovacao[]
+  propostas  Proposta[]
+
+  // RN01 / RNF04: no máximo uma reserva ATIVA por lote
+  @@unique([loteId], map: "reservas_lote_id_ativa_key", where: { status: "ATIVA" })
+  @@index([loteId])
+  @@index([clienteId])
+  @@index([vendedorId, dataVencimento])
+  // Rotina de expiração (RF18) e "Minhas reservas" ordenadas por vencimento (RF19)
+  @@index([status, dataVencimento])
+  @@map("reservas")
+}
+
+model ReservaRenovacao {
+  id                 String   @id @default(uuid()) @db.Uuid
+  reservaId          String   @map("reserva_id") @db.Uuid
+  usuarioId          String   @map("usuario_id") @db.Uuid
+  vencimentoAnterior DateTime @map("vencimento_anterior") @db.Timestamptz(3)
+  vencimentoNovo     DateTime @map("vencimento_novo") @db.Timestamptz(3)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  reserva Reserva @relation(fields: [reservaId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([reservaId])
+  @@index([usuarioId])
+  @@map("reserva_renovacoes")
+}
+
+// ===== propostas =====
+
+enum StatusProposta {
+  EM_ANALISE
+  APROVADA
+  REJEITADA
+
+  @@map("status_proposta")
+}
+
+/// CHECK em SQL: valor > 0 (propostas_valor_check) e, fora de EM_ANALISE,
+/// decidido_por_id, data_decisao e motivo_decisao preenchidos (RN10,
+/// propostas_decisao_check)
+model Proposta {
+  id            String         @id @default(uuid()) @db.Uuid
+  reservaId     String         @map("reserva_id") @db.Uuid
+  vendedorId    String         @map("vendedor_id") @db.Uuid
+  valor         Decimal        @db.Decimal(14, 2)
+  condicoes     String         @db.Text
+  observacoes   String?        @db.Text
+  status        StatusProposta @default(EM_ANALISE)
+  dataEnvio     DateTime       @default(now()) @map("data_envio") @db.Timestamptz(3)
+  // Data de envio + prazo_analise_dias_uteis (RN09)
+  prazoLimite   DateTime       @map("prazo_limite") @db.Timestamptz(3)
+  decididoPorId String?        @map("decidido_por_id") @db.Uuid
+  dataDecisao   DateTime?      @map("data_decisao") @db.Timestamptz(3)
+  motivoDecisao String?        @map("motivo_decisao") @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reserva     Reserva  @relation(fields: [reservaId], references: [id])
+  vendedor    Usuario  @relation("PropostaVendedor", fields: [vendedorId], references: [id])
+  decididoPor Usuario? @relation("PropostaDecisor", fields: [decididoPorId], references: [id])
+
+  // RN08: no máximo uma proposta EM_ANALISE por reserva
+  @@unique([reservaId], map: "propostas_reserva_id_em_analise_key", where: { status: "EM_ANALISE" })
+  @@index([reservaId])
+  @@index([vendedorId])
+  // Pendências do gestor com destaque para atrasadas (RF21)
+  @@index([status, prazoLimite])
+  @@map("propostas")
+}
+
+// ===== plantas =====
+
+enum StatusPlanta {
+  ENVIADA
+  PROCESSANDO
+  PRONTA
+  ERRO
+
+  @@map("status_planta")
+}
+
+model Planta {
+  id          String       @id @default(uuid()) @db.Uuid
+  nome        String       @db.VarChar(150)
+  versao      Int
+  status      StatusPlanta @default(ENVIADA)
+  larguraPx   Int?         @map("largura_px")
+  alturaPx    Int?         @map("altura_px")
+  // Prefixo dos tiles no armazenamento de objetos (Garage/S3)
+  tilesPath   String?      @map("tiles_path") @db.VarChar(255)
+  maxZoom     Int?         @map("max_zoom")
+  ativa       Boolean      @default(false)
+  criadoPorId String       @map("criado_por_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  criadoPor  Usuario    @relation(fields: [criadoPorId], references: [id])
+  marcadores Marcador[]
+
+  @@unique([versao])
+  // Apenas uma planta ativa
+  @@unique([ativa], map: "plantas_ativa_key", where: { ativa: true })
+  @@index([criadoPorId])
+  @@map("plantas")
+}
+
+// ===== mapa =====
+
+/// CHECK em SQL: x e y entre 0 e 1 (marcadores_x_check, marcadores_y_check)
+model Marcador {
+  id        String   @id @default(uuid()) @db.Uuid
+  plantaId  String   @map("planta_id") @db.Uuid
+  loteId    String   @map("lote_id") @db.Uuid
+  // Coordenadas normalizadas da imagem, entre 0 e 1
+  x         Float
+  y         Float
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  planta Planta @relation(fields: [plantaId], references: [id])
+  lote   Lote   @relation(fields: [loteId], references: [id])
+
+  // Um marcador por lote por planta
+  @@unique([plantaId, loteId])
+  @@index([loteId])
+  @@map("marcadores")
+}
+
+// ===== links-publicos =====
+
+model LinkPublico {
+  id           String   @id @default(uuid()) @db.Uuid
+  // randomBytes(32) em base64url (43 caracteres)
+  token        String   @unique @db.VarChar(64)
+  criadoPorId  String   @map("criado_por_id") @db.Uuid
+  // Nulo: o link mostra todos os loteamentos
+  loteamentoId String?  @map("loteamento_id") @db.Uuid
+  ativo        Boolean  @default(true)
+  acessos      Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  criadoPor  Usuario     @relation(fields: [criadoPorId], references: [id])
+  loteamento Loteamento? @relation(fields: [loteamentoId], references: [id])
+
+  @@index([criadoPorId])
+  @@index([loteamentoId])
+  @@map("links_publicos")
 }
