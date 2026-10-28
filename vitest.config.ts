@@ -16,6 +16,7 @@ export default defineConfig({
       include: [
         'src/modules/**/domain/**/*.ts',
         'src/modules/**/application/**/*.ts',
+        'src/shared/domain/dias-uteis.ts',
       ],
       thresholds: { lines: 80, branches: 80 },
     },
