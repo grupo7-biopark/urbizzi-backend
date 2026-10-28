@@ -239,7 +239,9 @@ O workflow `.github/workflows/ci.yml` roda em todo Pull Request e em todo push n
 | **Lint, build e testes unitários** | `npm ci` (com cache do npm) → `lint` → `format:check` → `build` → `test:cov` (com limite de cobertura) |
 | **Testes e2e** | Postgres como service container → `npm ci` → `db:generate` → `db:deploy` → `test:e2e` |
 
-Um novo push no mesmo PR cancela a execução anterior. O PR só deve ser mergeado com os dois jobs verdes. Para reproduzir localmente o que o CI faz: `npm run lint && npm run format:check && npm run build && npm run test:cov && npm run test:e2e`.
+Um novo push no mesmo PR cancela a execução anterior.
+
+A `main` é protegida no GitHub: não aceita push direto nem force push, todo código entra por Pull Request e o merge fica bloqueado até os dois jobs acima ficarem verdes (vale também para administradores). Se renomear um job no workflow, atualize as verificações obrigatórias em *Settings → Branches*, senão todo PR fica esperando um check que não existe mais. Para reproduzir localmente o que o CI faz: `npm run lint && npm run format:check && npm run build && npm run test:cov && npm run test:e2e`.
 
 ## Boas práticas
 
