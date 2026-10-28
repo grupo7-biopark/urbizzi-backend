@@ -1,0 +1,25 @@
+# dependências e build
+node_modules
+dist
+coverage
+
+# variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Prisma Client gerado
+/src/generated/prisma
+
+# logs / SO / IDE
+*.log
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# TypeScript incremental
+*.tsbuildinfo
+
+# TypeScript incremental
+*.tsbuildinfo

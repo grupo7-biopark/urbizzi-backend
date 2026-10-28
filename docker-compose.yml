@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-urbizzi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-urbizzi}
+      POSTGRES_DB: ${POSTGRES_DB:-urbizzi}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      target: development
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: development
+      # Polling: eventos de arquivo não atravessam bind mounts no Docker Desktop (Windows/macOS)
+      TSC_WATCHFILE: DynamicPriorityPolling
+      TSC_WATCHDIRECTORY: DynamicPriorityPolling
+      PORT: ${PORT:-3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-urbizzi}:${POSTGRES_PASSWORD:-urbizzi}@postgres:5432/${POSTGRES_DB:-urbizzi}?schema=public
+    ports:
+      - '${PORT:-3000}:${PORT:-3000}'
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./test:/usr/src/app/test
+      - ./prisma:/usr/src/app/prisma
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
