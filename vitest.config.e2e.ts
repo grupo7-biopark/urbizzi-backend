@@ -7,5 +7,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Os arquivos compartilham o mesmo banco e limpam as tabelas no
+    // beforeEach; em paralelo, um apagaria os dados do outro.
+    fileParallelism: false,
   },
 });
