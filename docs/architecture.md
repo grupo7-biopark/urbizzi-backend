@@ -182,7 +182,24 @@ Proibido: importar `domain/`, `application/` ou `infra/` de outro módulo direta
 
 ## Auditoria
 
-O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)`. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. A seção será detalhada na BE-06.
+O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)`. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. Importe `AuditoriaModule` no módulo consumidor e injete `AuditoriaService` exportado. O método retorna `Promise<void>` e propaga falhas; não capture o erro dentro da transação para continuar a alteração.
+
+```ts
+await this.transactionManager.run(async (tx) => {
+  await this.repository.update(entidade, tx);
+  await this.auditoriaService.registrar({
+    usuarioId,
+    entidadeTipo: 'Lote',
+    entidadeId: entidade.id,
+    acao: 'ALTERAR_STATUS',
+    valorAnterior: { status: 'DISPONIVEL' },
+    valorNovo: { status: 'RESERVADO' },
+    motivo: 'Reserva solicitada',
+  }, tx);
+});
+```
+
+Sem `tx`, registra uma operação independente. `usuarioId` omitido ou nulo representa o sistema. Valores omitidos ou nulos são armazenados como SQL NULL; demais valores aceitam JSON (inclusive arrays e escalares). O mascaramento recursivo copia os snapshots e substitui campos de senha, token, segredo, autorização, cookie, documento, e-mail e telefone por `[MASCARADO]`, sem diferenciar caixa. Envie somente campos necessários: nomes e textos livres (inclusive `motivo`) não são analisados; não inclua dados pessoais ou segredos nesses campos. O serviço não oferece edição ou exclusão; consultas ficam para BE-13.
 
 ## Exemplo completo: módulo `loteamentos`
 
