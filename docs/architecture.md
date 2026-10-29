@@ -56,7 +56,9 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `mapa`, `auditoria` | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 
-Recursos de `shared` previstos: autenticação/autorização (`shared/infra/auth`, BE-07/BE-09), armazenamento S3 (`shared/infra/storage`, BE-29), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
+Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09): `JwtAuthGuard` e `PerfisGuard` globais, `@Public()`, `@CurrentUser()` e `@Perfis(...)`. A policy reutilizável `shared/domain/policies/propriedade.policy.ts` verifica Admin/Gestor ou Comercial responsável, sem depender do framework. Detalhes na [segurança](security.md).
+
+Recursos de `shared` previstos: armazenamento S3 (`shared/infra/storage`, BE-29), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
 
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
 
@@ -190,7 +192,7 @@ O guard global e os decorators `@Public()` e `@CurrentUser()` ficam em `shared/i
 
 Portas técnicas de autenticação (`AccessToken`) ficam em `domain/repositories` e seus adapters JWT em `infra/repositories`. São contratos sem dependência de framework; configuração e criptografia JWT ficam no adapter. Falhas de autenticação usam `AuthenticationError`, traduzido para HTTP 401 pelo filtro global.
 
-`@Public()` pode ser usado no controller ou método e não dispensa a validação de DTOs. `/health` permanece público; as rotas de autenticação abertas são login, refresh e logout. Autorização por perfil ainda será implementada na BE-09. As dependências `@nestjs/jwt`, `@nestjs/throttler` e `argon2` fornecem assinatura/verificação JWT, limite de tentativas e hash de senha sem criptografia própria.
+`@Public()` pode ser usado no controller ou método e não dispensa a validação de DTOs. `/health` permanece público; as rotas de autenticação abertas são login, refresh e logout. Autorização por perfil é aplicada pelo `PerfisGuard` (BE-09), registrado logo após `JwtAuthGuard` no `AuthModule`. Listas do método substituem listas do controller, sem privilégio automático de Administrador. Propriedade permanece na policy chamada pelo service. As dependências `@nestjs/jwt`, `@nestjs/throttler` e `argon2` fornecem assinatura/verificação JWT, limite de tentativas e hash de senha sem criptografia própria.
 
 ## Auditoria
 

@@ -16,6 +16,9 @@ export default defineConfig({
       include: [
         'src/modules/**/domain/**/*.ts',
         'src/modules/**/application/**/*.ts',
+        'src/shared/domain/policies/propriedade.policy.ts',
+        'src/shared/infra/auth/perfis.guard.ts',
+        'src/shared/infra/auth/perfis.decorator.ts',
       ],
       thresholds: { lines: 80, branches: 80 },
     },

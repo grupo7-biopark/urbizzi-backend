@@ -1,3 +1,4 @@
+import { PerfisGuard } from '../../shared/infra/auth/perfis.guard.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -25,6 +26,7 @@ import { AuthController } from './infra/controllers/auth.controller.js';
     AuthService,
     { provide: AUTENTICADOR, useExisting: AuthService },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: PerfisGuard },
     { provide: ACCESS_TOKEN, useClass: JwtAccessToken },
     { provide: SESSAO_REPOSITORY, useClass: PrismaSessaoRepository },
   ],
