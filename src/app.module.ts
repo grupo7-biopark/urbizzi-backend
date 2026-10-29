@@ -1,3 +1,4 @@
+import { AuditoriaModule } from './modules/auditoria/auditoria.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -10,6 +11,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
     ConfigModule.forRoot({ isGlobal: true, cache: true, validate }),
     PrismaModule,
     HealthModule,
+    AuditoriaModule,
     AuthModule,
     // Módulos de domínio (src/modules/<modulo>/<modulo>.module.ts) entram aqui.
   ],
