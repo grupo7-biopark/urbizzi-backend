@@ -200,6 +200,15 @@ Modelo do escopo v2 (seção "Modelo de dados revisado" de [Urbizzi - Escopo do 
 
 ```mermaid
 erDiagram
+  usuarios ||--o{ sessoes : possui
+  sessoes {
+    uuid id PK
+    uuid usuario_id FK
+    char token_hash UK "SHA-256; nunca o token bruto"
+    timestamptz expira_em
+    timestamptz revogado_em
+    timestamptz created_at
+  }
   perfis ||--o{ usuarios : "define"
   usuarios ||--o{ tokens_recuperacao_senha : "solicita"
   usuarios ||--o{ reservas : "vende"
@@ -353,3 +362,7 @@ Decisões de modelagem em relação ao escopo v2:
 - `Planta.versao` é única, e o índice parcial garante uma única planta `ativa`.
 - `TokenRecuperacaoSenha` guarda o hash do token, nunca o token (ver [security.md](security.md#recuperação-de-senha-be-08)).
 - Motivo de bloqueio do lote (RN15) e de cancelamento são registrados no `historico_auditoria` (`motivo`) e, no caso da reserva, também em `motivo_encerramento`.
+
+### Sessões de autenticação (BE-07)
+
+A tabela `sessoes`, pertencente ao módulo `auth`, guarda apenas hash SHA-256 do refresh token, usuário, validade e revogação. O consumo do refresh usa `updateMany` condicionado a token não revogado e ainda válido, seguido de inserção da nova sessão na mesma transação. Concorrência resulta em somente uma renovação. Índices por usuário e expiração permitem consultas e futura limpeza de sessões vencidas; não há rotina de limpeza automática nesta issue.

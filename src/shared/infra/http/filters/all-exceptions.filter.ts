@@ -9,6 +9,7 @@ import {
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma } from '../../../../generated/prisma/client.js';
 import {
+  AuthenticationError,
   BusinessRuleError,
   ConflictError,
   DomainError,
@@ -26,6 +27,7 @@ type ResolvedError = Pick<
 >;
 
 const DOMAIN_ERROR_STATUS = new Map<Function, HttpStatus>([
+  [AuthenticationError, HttpStatus.UNAUTHORIZED],
   [NotFoundError, HttpStatus.NOT_FOUND],
   [ConflictError, HttpStatus.CONFLICT],
   [BusinessRuleError, HttpStatus.UNPROCESSABLE_ENTITY],

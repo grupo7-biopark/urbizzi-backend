@@ -26,3 +26,6 @@ export class BusinessRuleError extends DomainError {}
 
 /** Usuário autenticado sem permissão para a ação/recurso. HTTP 403. */
 export class ForbiddenError extends DomainError {}
+
+/** Credenciais ausentes ou inválidas. HTTP 401. */
+export class AuthenticationError extends DomainError {}

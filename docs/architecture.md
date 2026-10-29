@@ -43,7 +43,7 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 
 | Módulo (`src/modules/`) | Entidades | Responsabilidade | Depende de | Issues |
 | --- | --- | --- | --- | --- |
-| `auth` | `TokenRecuperacaoSenha` | login, emissão de JWT, recuperação de senha | `usuarios` | BE-07, BE-08 |
+| `auth` | `TokenRecuperacaoSenha`, `Sessao` | login, emissão de JWT, recuperação de senha | `usuarios` | BE-07, BE-08 |
 | `usuarios` | `Usuario`, `Perfil` | gestão de usuários e perfis | `auditoria` | BE-10 |
 | `configuracoes` | `Configuracao` | prazos de reserva e de análise | `auditoria` | BE-11 |
 | `auditoria` | `HistoricoAuditoria` | registro e consulta do histórico de alterações | — | BE-06, BE-13 |
@@ -56,7 +56,9 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `mapa`, `auditoria` | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 
-Recursos de `shared` previstos: autenticação/autorização (`shared/infra/auth`, BE-07/BE-09), armazenamento S3 (`shared/infra/storage`, BE-29), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
+Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09): `JwtAuthGuard` e `PerfisGuard` globais, `@Public()`, `@CurrentUser()` e `@Perfis(...)`. A policy reutilizável `shared/domain/policies/propriedade.policy.ts` verifica Admin/Gestor ou Comercial responsável, sem depender do framework. Detalhes na [segurança](security.md).
+
+Recursos de `shared` previstos: armazenamento S3 (`shared/infra/storage`, BE-29), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
 
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
 
@@ -179,6 +181,18 @@ Qualquer exceção em qualquer ponto → AllExceptionsFilter → resposta no for
 3. **Eventos de domínio (quando a reação não pode criar ciclo ou não precisa estar na transação).** Ex.: avisar o mapa em tempo real que o status de um lote mudou (BE-36). Use `@nestjs/event-emitter` (será instalado na primeira issue que precisar): a classe do evento fica em `domain/events/<nome>.event.ts` do módulo que emite, o nome segue `<modulo>.<entidade>.<fato-no-passado>` (ex.: `loteamentos.lote.status-alterado`) e o listener fica em `infra/listeners/` do módulo que reage. Emita o evento **depois** do commit da transação.
 
 Proibido: importar `domain/`, `application/` ou `infra/` de outro módulo diretamente, injetar o repositório de outro módulo, ou consultar as tabelas de outro módulo pelo Prisma (inclusive com `include` de relações que pertencem a outro módulo em escrita; `include` para leitura é aceito apenas dentro do mesmo módulo).
+
+## Autenticação (BE-07)
+
+`AuthModule` importa `UsuariosModule`, que exporta `UsuarioService.autenticar` e `findAtivoById` com dados mínimos do usuário, sem senha/hash. O módulo de usuários começa apenas com consultas para autenticação; seu CRUD permanece na BE-10.
+
+`Sessao` pertence ao módulo `auth`. O repositório é o único a acessar `sessoes`, incluindo consumo condicional e criação do refresh substituto na mesma transação.
+
+O guard global e os decorators `@Public()` e `@CurrentUser()` ficam em `shared/infra/auth`. Para evitar dependência de `shared` para módulos, o guard injeta o contrato `Autenticador` por `AUTENTICADOR`, definido em `shared/domain/usuario-autenticado.ts`. `AuthModule` vincula esse token ao `AuthService`. O contrato `PasswordHasher` em `shared/application/auth` é implementado por Argon2 em `shared/infra/auth`; `UsuarioService` depende apenas do contrato.
+
+Portas técnicas de autenticação (`AccessToken`) ficam em `domain/repositories` e seus adapters JWT em `infra/repositories`. São contratos sem dependência de framework; configuração e criptografia JWT ficam no adapter. Falhas de autenticação usam `AuthenticationError`, traduzido para HTTP 401 pelo filtro global.
+
+`@Public()` pode ser usado no controller ou método e não dispensa a validação de DTOs. `/health` permanece público; as rotas de autenticação abertas são login, refresh e logout. Autorização por perfil é aplicada pelo `PerfisGuard` (BE-09), registrado logo após `JwtAuthGuard` no `AuthModule`. Listas do método substituem listas do controller, sem privilégio automático de Administrador. Propriedade permanece na policy chamada pelo service. As dependências `@nestjs/jwt`, `@nestjs/throttler` e `argon2` fornecem assinatura/verificação JWT, limite de tentativas e hash de senha sem criptografia própria.
 
 ## Auditoria
 
