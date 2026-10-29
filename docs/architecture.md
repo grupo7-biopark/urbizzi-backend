@@ -61,9 +61,11 @@ Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em 
 Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09): `JwtAuthGuard` e `PerfisGuard` globais, `@Public()`, `@CurrentUser()` e `@Perfis(...)`. A policy reutilizável `shared/domain/policies/propriedade.policy.ts` verifica Admin/Gestor ou Comercial responsável, sem depender do framework. Detalhes na [segurança](security.md).
 
 
-Recurso previsto: cálculo de dias úteis (BE-12).
-
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
+
+## Cálculo de dias úteis
+
+`shared/domain/dias-uteis.ts` (BE-12) fornece `adicionarDiasUteis` e `diasUteisEntre`, com calendário de São Paulo, feriados fixos/móveis e feriados locais adicionais. Services podem importar essas funções puras diretamente. Contrato, convenções de intervalo e exemplos em [dias-uteis.md](dias-uteis.md).
 
 ## Estrutura de um módulo
 
@@ -199,7 +201,24 @@ Portas técnicas de autenticação (`AccessToken`) ficam em `domain/repositories
 
 ## Auditoria
 
-O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)`. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. A seção será detalhada na BE-06.
+O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)`. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. Importe `AuditoriaModule` no módulo consumidor e injete `AuditoriaService` exportado. O método retorna `Promise<void>` e propaga falhas; não capture o erro dentro da transação para continuar a alteração.
+
+```ts
+await this.transactionManager.run(async (tx) => {
+  await this.repository.update(entidade, tx);
+  await this.auditoriaService.registrar({
+    usuarioId,
+    entidadeTipo: 'Lote',
+    entidadeId: entidade.id,
+    acao: 'ALTERAR_STATUS',
+    valorAnterior: { status: 'DISPONIVEL' },
+    valorNovo: { status: 'RESERVADO' },
+    motivo: 'Reserva solicitada',
+  }, tx);
+});
+```
+
+Sem `tx`, registra uma operação independente. `usuarioId` omitido ou nulo representa o sistema. Valores omitidos ou nulos são armazenados como SQL NULL; demais valores aceitam JSON (inclusive arrays e escalares). O mascaramento recursivo copia os snapshots e substitui campos de senha, token, segredo, autorização, cookie, documento, e-mail e telefone por `[MASCARADO]`, sem diferenciar caixa. Envie somente campos necessários: nomes e textos livres (inclusive `motivo`) não são analisados; não inclua dados pessoais ou segredos nesses campos. O serviço não oferece edição ou exclusão; consultas ficam para BE-13.
 
 ## Exemplo completo: módulo `loteamentos`
 
