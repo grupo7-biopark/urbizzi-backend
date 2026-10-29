@@ -31,6 +31,20 @@ model TokenRecuperacaoSenha {
   @@map("tokens_recuperacao_senha")
 }
 
+model Sessao {
+  id         String    @id @default(uuid()) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.Char(64)
+  expiraEm   DateTime  @map("expira_em") @db.Timestamptz(3)
+  revogadoEm DateTime? @map("revogado_em") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+  @@map("sessoes")
+}
+
 // ===== usuarios =====
 
 enum PerfilCodigo {
@@ -73,6 +87,7 @@ model Usuario {
   propostasDecididas     Proposta[]              @relation("PropostaDecisor")
   plantas                Planta[]
   linksPublicos          LinkPublico[]
+  sessoes                Sessao[]
   historicoAuditoria     HistoricoAuditoria[]
 
   @@index([perfilId])
