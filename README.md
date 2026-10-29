@@ -16,14 +16,15 @@ cp .env.example .env        # configure JWT_SECRET antes de iniciar
 docker compose up --build
 ```
 
-Isso sobe dois serviços:
+Isso sobe três serviços:
 
 | Serviço    | Descrição                                                        | Porta  |
 | ---------- | ---------------------------------------------------------------- | ------ |
+| `garage` | Armazenamento S3 local; layout, chave e buckets criados automaticamente | `3900` |
 | `postgres` | PostgreSQL 17 com volume persistente (`postgres_data`) e healthcheck | `5432` |
 | `api`      | API NestJS em modo desenvolvimento com hot reload                 | `3000` |
 
-A API só inicia depois que o Postgres estiver saudável, aplica as migrations pendentes (`prisma migrate deploy`) e fica observando alterações em `src/`.
+A API só inicia depois que Postgres e Garage estiverem saudáveis, aplica as migrations pendentes (`prisma migrate deploy`) e fica observando alterações em `src/`.
 
 Depois de subir:
 
@@ -43,6 +44,17 @@ Error: Variáveis de ambiente inválidas:
 
 | Variável            | Obrigatória | Padrão        | Descrição                                   |
 | ------------------- | ----------- | ------------- | ------------------------------------------- |
+| `S3_ENDPOINT` | não | `http://localhost:3900` | Endpoint S3 (http://garage:3900 no compose) |
+| `S3_PUBLIC_ENDPOINT` | não | mesmo endpoint | Endereço usado nas URLs assinadas |
+| `S3_REGION` | não | `garage` | Região S3 |
+| `S3_FORCE_PATH_STYLE` | não | `true` | Endereçamento por caminho, string true/false |
+| `S3_ACCESS_KEY_ID` | sim | - | Chave S3; valor fictício no compose local |
+| `S3_SECRET_ACCESS_KEY` | sim | - | Segredo S3; valor fictício no compose local |
+| `S3_BUCKET_ORIGINAIS` | não | `plantas-originais` | Bucket de originais |
+| `S3_BUCKET_TILES` | não | `plantas-tiles` | Bucket de tiles |
+| `S3_URL_EXPIRES_IN` | não | `900` | Validade das URLs em segundos (até 604800) |
+| `GARAGE_RPC_SECRET` | compose | fictício local | Segredo RPC hexadecimal de 32 bytes |
+| `GARAGE_S3_PORT` | não | `3900` | Porta S3 do Garage no host |
 | `JWT_SECRET` | sim | - | Segredo HS256 com no mínimo 32 caracteres |
 | `JWT_EXPIRES_IN` | não | `900` | Validade do access token em segundos (60 a 3600) |
 | `REFRESH_TOKEN_EXPIRES_IN` | não | `604800` | Validade do refresh em segundos (3600 a 2592000) |
@@ -62,7 +74,7 @@ Error: Variáveis de ambiente inválidas:
 
 ```bash
 npm install                 # também roda `prisma generate`
-docker compose up -d postgres
+docker compose up -d garage postgres
 npm run start:dev
 ```
 
@@ -94,10 +106,12 @@ O `Dockerfile` é multi-stage. O target `development` é usado pelo compose; o t
 
 ```bash
 docker build --target production -t urbizzi-backend .
-docker run --rm -p 3000:3000 -e DATABASE_URL=postgresql://... -e JWT_SECRET=<segredo-aleatorio> urbizzi-backend
+docker run --rm -p 3000:3000 -e DATABASE_URL=postgresql://... -e JWT_SECRET=<segredo-aleatorio> -e S3_ENDPOINT=https://... -e S3_ACCESS_KEY_ID=... -e S3_SECRET_ACCESS_KEY=... urbizzi-backend
 ```
 
 A imagem de produção não inclui o Prisma CLI; as migrations devem ser aplicadas no pipeline de deploy com `npm run db:deploy`.
+
+Setup, operações e testes de arquivos: [docs/storage.md](docs/storage.md). Fora do compose, configure as credenciais S3 de `.env.example` antes de iniciar a API.
 
 ## Arquitetura e padrões
 

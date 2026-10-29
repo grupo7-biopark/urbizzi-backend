@@ -16,6 +16,8 @@ export default defineConfig({
       include: [
         'src/modules/**/domain/**/*.ts',
         'src/modules/**/application/**/*.ts',
+        'src/shared/application/storage/**/*.ts',
+        'src/shared/infra/storage/**/*.ts',
         'src/shared/domain/dias-uteis.ts',
         'src/shared/domain/policies/propriedade.policy.ts',
         'src/shared/infra/auth/perfis.guard.ts',
