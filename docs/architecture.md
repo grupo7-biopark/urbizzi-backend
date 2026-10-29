@@ -58,9 +58,13 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 
 Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09): `JwtAuthGuard` e `PerfisGuard` globais, `@Public()`, `@CurrentUser()` e `@Perfis(...)`. A policy reutilizável `shared/domain/policies/propriedade.policy.ts` verifica Admin/Gestor ou Comercial responsável, sem depender do framework. Detalhes na [segurança](security.md).
 
-Recursos de `shared` previstos: armazenamento S3 (`shared/infra/storage`, BE-29), cálculo de dias úteis (`shared/domain/dias-uteis`, BE-12).
+Recursos de `shared` previstos: armazenamento S3 (`shared/infra/storage`, BE-29).
 
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
+
+## Cálculo de dias úteis
+
+`shared/domain/dias-uteis.ts` (BE-12) fornece `adicionarDiasUteis` e `diasUteisEntre`, com calendário de São Paulo, feriados fixos/móveis e feriados locais adicionais. Services podem importar essas funções puras diretamente. Contrato, convenções de intervalo e exemplos em [dias-uteis.md](dias-uteis.md).
 
 ## Estrutura de um módulo
 
