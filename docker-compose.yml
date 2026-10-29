@@ -49,6 +49,7 @@ services:
       - path: .env
         required: false
     environment:
+      JWT_SECRET: ${JWT_SECRET:-}
       NODE_ENV: development
       # Polling: eventos de arquivo não atravessam bind mounts no Docker Desktop (Windows/macOS)
       TSC_WATCHFILE: DynamicPriorityPolling

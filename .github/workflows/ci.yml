@@ -64,6 +64,7 @@ jobs:
       S3_ACCESS_KEY_ID: GK0123456789abcdef0123456789abcdef
       S3_SECRET_ACCESS_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       S3_ENDPOINT: http://localhost:3900
+      JWT_SECRET: segredo-ficticio-exclusivo-do-ci-com-32-caracteres
       NODE_ENV: test
       DATABASE_URL: postgresql://urbizzi:urbizzi@localhost:5432/urbizzi_test?schema=public
     steps:

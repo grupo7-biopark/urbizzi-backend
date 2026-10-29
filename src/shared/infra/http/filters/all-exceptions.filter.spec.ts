@@ -6,6 +6,7 @@ import {
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma } from '../../../../generated/prisma/client.js';
 import {
+  AuthenticationError,
   BusinessRuleError,
   ConflictError,
   ForbiddenError,
@@ -34,6 +35,13 @@ describe('AllExceptionsFilter', () => {
   }
 
   it.each([
+    [
+      new AuthenticationError(
+        'CREDENCIAIS_INVALIDAS',
+        'E-mail ou senha inválidos',
+      ),
+      401,
+    ],
     [new NotFoundError('LOTE_NAO_ENCONTRADO', 'Lote não encontrado'), 404],
     [new ConflictError('LOTE_INDISPONIVEL', 'Lote indisponível'), 409],
     [new BusinessRuleError('RESERVA_EXPIRADA', 'Reserva expirada'), 422],

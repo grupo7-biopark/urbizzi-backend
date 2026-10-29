@@ -21,6 +21,7 @@ vi.mock('@aws-sdk/lib-storage', () => ({
 describe('StorageService', () => {
   const config = new ConfigService<Env, true>(
     validate({
+      JWT_SECRET: 'segredo-ficticio-de-testes-com-32-caracteres',
       DATABASE_URL: 'postgresql://local/teste',
       S3_ACCESS_KEY_ID: 'chave-teste',
       S3_SECRET_ACCESS_KEY: 'segredo-ficticio',
@@ -57,6 +58,7 @@ describe('StorageService', () => {
   it('permite outro endpoint, região e endereçamento virtual por configuração', async () => {
     const cfg = new ConfigService<Env, true>(
       validate({
+        JWT_SECRET: 'segredo-ficticio-de-testes-com-32-caracteres',
         DATABASE_URL: 'postgresql://local/teste',
         S3_ACCESS_KEY_ID: 'teste',
         S3_SECRET_ACCESS_KEY: 'teste',

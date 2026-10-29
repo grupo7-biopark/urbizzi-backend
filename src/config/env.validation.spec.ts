@@ -4,6 +4,7 @@ describe('validate (env)', () => {
   const validEnv = {
     S3_ACCESS_KEY_ID: 'chave-teste',
     S3_SECRET_ACCESS_KEY: 'segredo-ficticio',
+    JWT_SECRET: 'segredo-ficticio-de-testes-com-32-caracteres',
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/urbizzi?schema=public',
   };
 
@@ -17,6 +18,9 @@ describe('validate (env)', () => {
       S3_BUCKET_ORIGINAIS: 'plantas-originais',
       S3_BUCKET_TILES: 'plantas-tiles',
       S3_URL_EXPIRES_IN: 900,
+      JWT_SECRET: validEnv.JWT_SECRET,
+      JWT_EXPIRES_IN: 900,
+      REFRESH_TOKEN_EXPIRES_IN: 604800,
       NODE_ENV: 'development',
       PORT: 3000,
       DATABASE_URL: validEnv.DATABASE_URL,
@@ -32,6 +36,14 @@ describe('validate (env)', () => {
     { S3_URL_EXPIRES_IN: 604801 },
   ])('rejeita configuração S3 inválida %j', (override) => {
     expect(() => validate({ ...validEnv, ...override })).toThrow();
+  });
+
+  it.each([
+    { JWT_SECRET: 'curto' },
+    { JWT_EXPIRES_IN: 0 },
+    { REFRESH_TOKEN_EXPIRES_IN: -1 },
+  ])('rejeita configuração de token inválida %j', (config) => {
+    expect(() => validate({ ...validEnv, ...config })).toThrow();
   });
 
   it('converte PORT para número', () => {

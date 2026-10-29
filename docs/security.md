@@ -1,11 +1,16 @@
 # Segurança
 
-> Status: autenticação (BE-07), recuperação de senha (BE-08) e autorização (BE-09) **ainda não estão implementadas**. Este documento define como elas devem ser feitas. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
+> Status: autenticação (BE-07) e autorização por perfil (BE-09) implementadas. Recuperação de senha (BE-08) continua prevista. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
 
 ## Autenticação
 
 - Login por e-mail e senha em `POST /v1/auth/login`, que devolve um **access token JWT** (`Authorization: Bearer <token>`).
-- JWT assinado com HS256 e `JWT_SECRET` (mínimo 32 caracteres, validado no schema de ambiente). Expiração configurável por `JWT_EXPIRES_IN` (padrão `8h`). A necessidade de refresh token será avaliada na BE-07.
+- JWT assinado com HS256 e `JWT_SECRET` (mínimo 32 caracteres, validado no schema de ambiente). Expiração configurável por `JWT_EXPIRES_IN` em segundos (padrão `900`, máximo `3600`). Emissor `urbizzi`, audiência `urbizzi-api`; somente HS256 é aceito.
+- Login também retorna refresh token opaco de 32 bytes aleatórios; somente SHA-256 é armazenado em `sessoes`. Validade configurável por `REFRESH_TOKEN_EXPIRES_IN` (segundos, padrão 7 dias). `POST /v1/auth/refresh` exige `{ refreshToken }`, consome o anterior e cria outro atomicamente: apenas uma tentativa concorrente pode vencer. Token expirado, revogado ou de usuário inativo retorna `401 REFRESH_TOKEN_INVALIDO`.
+- `POST /v1/auth/logout` recebe `{ refreshToken }` e revoga esse token (204, idempotente); não exige access token para permitir saída após expiração. O access token já emitido vale até expirar, salvo desativação do usuário. O cliente deve apagar ambos os tokens ao sair.
+- `GET /v1/auth/me` devolve apenas id, nome, e-mail e perfil do próprio usuário. O guard consulta usuário e perfil atuais em toda requisição protegida. Respostas de autenticação usam `Cache-Control: no-store`.
+- Login e refresh aceitam até 5 tentativas por IP/rota a cada 60 segundos. Contadores ficam em memória nesta aplicação; várias réplicas exigem armazenamento compartilhado. Não configure confiança em cabeçalhos de proxy sem definir os proxies confiáveis.
+- Credenciais de usuário inexistente executam verificação de hash substituto para reduzir diferenças de tempo. Hashes e senhas nunca são devolvidos pelos serviços exportados.
 - Payload mínimo: `{ sub: usuarioId, perfil, nome }`. Nunca coloque dados pessoais além do necessário (sem CPF, telefone etc.).
 - Usuário com `ativo = false` não autentica, e um token emitido antes da desativação deixa de valer (o guard consulta o usuário).
 - Senhas com hash **argon2id** (pacote `argon2`, parâmetros padrão). Nunca armazene, registre em log ou devolva a senha ou o hash.
@@ -34,36 +39,29 @@
 A implementação fica em `src/shared/infra/auth/` (BE-07/BE-09):
 
 1. **`JwtAuthGuard` global** (registrado como `APP_GUARD`): toda rota exige token válido. Rotas abertas são marcadas explicitamente com `@Public()` (ex.: login, recuperação de senha, `GET /health`, mapa público por token).
-2. **`PerfisGuard` global** (segundo `APP_GUARD`): lê o decorator `@Perfis(...)` do método ou do controller. Sem `@Perfis`, a rota é permitida a qualquer usuário autenticado. Com `@Perfis`, o perfil do usuário precisa estar na lista; caso contrário, `403 ACESSO_NEGADO`.
+2. **`PerfisGuard` global** (segundo `APP_GUARD`): lê o decorator `@Perfis(...)` do método ou do controller. Sem `@Perfis`, a rota é permitida a qualquer usuário autenticado. A lista do método substitui a do controller; `@Perfis()` com lista vazia nega todos. Com `@Perfis`, o perfil atual do usuário precisa estar na lista; caso contrário, `403 ACESSO_NEGADO`. Rotas `@Public()` dispensam os dois guards. O guard de perfis é registrado depois do guard JWT, preservando 401 para ausência de autenticação.
 3. **`ADMINISTRADOR` não é coringa automático**: inclua-o explicitamente em `@Perfis` quando ele puder executar a ação. Assim a matriz abaixo é a fonte de verdade e o código fica igual a ela.
 4. **Regras de propriedade** (ex.: Comercial só altera as próprias reservas) não ficam no guard, que não conhece o recurso. Ficam em uma **policy** no `domain/policies/` do módulo, chamada pelo service depois de carregar o recurso:
 
 ```ts
 // src/modules/reservas/domain/policies/reserva-propriedade.policy.ts (ilustrativo)
-import { ForbiddenError } from '../../../../shared/domain/errors/domain.error.js';
+import { PropriedadePolicy } from '../../../../shared/domain/policies/propriedade.policy.js';
+import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
 import type { Reserva } from '../models/reserva.entity.js';
-
-export interface UsuarioAutenticado {
-  id: string;
-  perfil: 'ADMINISTRADOR' | 'GESTOR' | 'COMERCIAL' | 'CONSULTA';
-}
 
 export class ReservaPropriedadePolicy {
   static assertPodeAlterar(usuario: UsuarioAutenticado, reserva: Reserva): void {
-    if (usuario.perfil === 'COMERCIAL' && reserva.vendedorId !== usuario.id) {
-      throw new ForbiddenError(
-        'RESERVA_DE_OUTRO_VENDEDOR',
-        'Você só pode alterar as suas próprias reservas',
-      );
-    }
+    PropriedadePolicy.assertPodeAlterar(usuario, reserva.vendedorId);
   }
 }
 ```
 
+`PropriedadePolicy.assertPodeAlterar(usuario, responsavelId)` é uma base reutilizável de `shared/domain/policies`: permite Administrador/Gestor explicitamente, permite Comercial somente quando é responsável e nega Consulta. Lança `ForbiddenError('ACESSO_NEGADO', ...)` sem dados do recurso. Use apenas nas ações cuja matriz permite esses perfis (reservas, propostas ou links); ela não substitui `@Perfis` nem implementa a regra de todas as ações do sistema. Policies de domínio podem compor essa base com suas regras específicas. O service carrega o recurso e chama a policy antes de alterar dados; o guard não consulta propriedade.
+
 ```ts
 // controller
 @Post(':id/renovar')
-@Perfis(Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.COMERCIAL)
+@Perfis('ADMINISTRADOR', 'GESTOR', 'COMERCIAL')
 renovar(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() usuario: UsuarioAutenticado) {
   return this.reservaService.renovar(id, usuario);
 }
