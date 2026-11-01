@@ -728,3 +728,5 @@ Os testes deste exemplo estão em [testing.md](testing.md#exemplos).
 ### Recuperação de senha (BE-08)
 
 `RecuperacaoSenhaService` usa `UsuarioService` para consultar contas ativas, gerar hash e alterar senha dentro da transação. O repositório de recuperação acessa somente as tabelas de `auth` (tokens e sessões). `EmailModule`, em `shared/infra/email`, implementa o contrato técnico `shared/application/email/Email` com SMTP via Nodemailer. Não possui tabelas. O SMTP é chamado depois de persistir o token, fora de transação.
+
+Na autenticação, `AuthService` abre as transações de login/refresh com `TransactionManager`. `UsuarioService` coordena o bloqueio de credenciais no repositório dono de `usuarios`, e o repositório de sessões recebe a mesma transação para criação/rotação. A redefinição usa o mesmo bloqueio ao atualizar a senha, sempre antes de consumir tokens e revogar sessões. Isso evita sessões sobreviventes em requisições simultâneas sem migração ou acoplamento entre repositórios de módulos distintos.

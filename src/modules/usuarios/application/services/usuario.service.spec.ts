@@ -11,6 +11,8 @@ describe('UsuarioService', () => {
   };
   const repository = {
     redefinirSenha: vi.fn(),
+    bloquearAutenticacao: vi.fn(),
+    bloquearAutenticacaoPorEmail: vi.fn(),
     findByEmail: vi.fn(),
     findById: vi.fn(),
   };
@@ -29,7 +31,10 @@ describe('UsuarioService', () => {
       email: 'teste@exemplo.com',
       perfil: 'COMERCIAL',
     });
-    expect(repository.findByEmail).toHaveBeenCalledWith('teste@exemplo.com');
+    expect(repository.findByEmail).toHaveBeenCalledWith(
+      'teste@exemplo.com',
+      undefined,
+    );
     expect(hasher.verify).toHaveBeenCalledWith('hash', 'senha');
   });
   it.each([
@@ -82,5 +87,25 @@ describe('UsuarioService', () => {
       'novo-hash',
       tx,
     );
+  });
+
+  it('autentica com leitura transacional depois de bloquear o usuário por e-mail', async () => {
+    const tx =
+      {} as import('../../../../shared/infra/database/prisma.transaction.js').PrismaTransaction;
+    repository.findByEmail.mockResolvedValue(Usuario.restore(props));
+    hasher.verify.mockResolvedValue(true);
+    expect(
+      await service.autenticar(' TESTE@EXEMPLO.COM ', 'senha', tx),
+    ).toMatchObject({ id: 'id' });
+    expect(repository.bloquearAutenticacaoPorEmail).toHaveBeenCalledWith(
+      'teste@exemplo.com',
+      tx,
+    );
+    expect(repository.findByEmail).toHaveBeenCalledWith(
+      'teste@exemplo.com',
+      tx,
+    );
+    await service.bloquearAutenticacao('id', tx);
+    expect(repository.bloquearAutenticacao).toHaveBeenCalledWith('id', tx);
   });
 });

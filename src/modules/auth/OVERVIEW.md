@@ -43,3 +43,9 @@ A solicitação recebe `{ "email": "usuario@exemplo.com" }`. A redefinição rec
 Tokens opacos de 32 bytes, com apenas SHA-256 persistido, expiram após uma hora. Token inexistente, expirado, usado ou de conta desativada gera `401 TOKEN_RECUPERACAO_INVALIDO`. Redefinição, consumo, invalidação de todos os links anteriores e revogação de todas as sessões do usuário usam a mesma transação; falha reverte tudo. Access JWT já emitido continua válido até expirar.
 
 O contrato `Email` fica em `shared/application/email`; `EmailModule` fornece o adapter SMTP Nodemailer (dependência necessária para SMTP/TLS/autenticação sem protocolo próprio). O envio ocorre fora da transação. Falha SMTP mantém o mesmo 202 para evitar enumeração de contas; o usuário pode solicitar novo link. O link usa exclusivamente PASSWORD_RESET_URL configurada, nunca o Host da requisição. A página do frontend não faz parte desta entrega.
+
+### Concorrência com login e refresh
+
+Login, refresh e redefinição coordenam suas transações pelo bloqueio da linha do usuário. O login bloqueia pelo e-mail normalizado antes de ler/verificar a senha; o refresh bloqueia pelo id antes de consumir a sessão; a redefinição obtém o mesmo bloqueio ao atualizar a senha. A ordem é sempre usuário antes de sessões/tokens. Assim, sessões criadas antes da redefinição são revogadas, e operações que aguardaram a troca consultam o estado novo. O service abre a transação e os repositórios recebem `tx`; não há transação aninhada na rotação.
+
+Testes E2E mantêm a transação de login/refresh aberta até observar a redefinição aguardando o bloqueio, e verificam a ausência de sessões ativas ao final. O sentido inverso também é testado: login com senha antiga e refresh aguardam a redefinição e retornam 401.

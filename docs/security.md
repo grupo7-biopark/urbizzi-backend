@@ -155,3 +155,7 @@ Regras:
 - Upload de arquivos (BE-30): limite de tamanho, lista de tipos MIME permitidos e nome do objeto gerado pelo servidor (nunca o nome enviado pelo usuário).
 - SQL cru só com `$queryRaw` usando template tag (parâmetros escapados); `$queryRawUnsafe`/`$executeRawUnsafe` só com strings fixas, nunca com entrada do usuário.
 - Dependências: não adicione pacotes sem manutenção; rode `npm audit` ao atualizar.
+
+### Sessões simultâneas à troca de senha
+
+Login e refresh são serializados com a redefinição pela linha do usuário. O login verifica a senha sob esse bloqueio; o refresh consome e cria sessões na mesma transação que mantém o bloqueio. A redefinição atualiza o usuário antes de consumir o token e revogar sessões. Uma sessão criada antes dela será revogada; após ela, a senha antiga e os refresh tokens anteriores não podem iniciar nova sessão. JWTs de acesso mantêm sua validade até expirar.

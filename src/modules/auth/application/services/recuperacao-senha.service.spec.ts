@@ -95,7 +95,10 @@ describe('RecuperacaoSenhaService', () => {
       usuarios.redefinirSenha.mockResolvedValue(caso !== 'inativo');
       await expect(
         service.redefinir('token', 'NovaSenha123!'),
-      ).rejects.toMatchObject({ code: 'TOKEN_RECUPERACAO_INVALIDO' });
+      ).rejects.toMatchObject({
+        code: 'TOKEN_RECUPERACAO_INVALIDO',
+        message: 'Token de recuperação inválido ou expirado',
+      });
       expect(repository.invalidarTodos).not.toHaveBeenCalled();
     },
   );

@@ -1,3 +1,7 @@
+import { PrismaSessaoRepository } from '../../src/modules/auth/infra/repositories/prisma-sessao.repository.js';
+import { PrismaRecuperacaoSenhaRepository } from '../../src/modules/auth/infra/repositories/prisma-recuperacao-senha.repository.js';
+import { SESSAO_REPOSITORY } from '../../src/modules/auth/domain/repositories/sessao.repository.interface.js';
+import { RECUPERACAO_SENHA_REPOSITORY } from '../../src/modules/auth/domain/repositories/recuperacao-senha.repository.interface.js';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
@@ -49,6 +53,7 @@ describe('Recuperação de senha (e2e)', () => {
     ).id;
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
     await app?.close();
   });
   const solicitar = (email = credenciais.email) =>
@@ -179,5 +184,137 @@ describe('Recuperação de senha (e2e)', () => {
     await solicitar().expect(202);
     const results = await Promise.all([redefinir(anterior), redefinir(token)]);
     expect(results.map((r) => r.status).sort()).toEqual([204, 401]);
+  });
+
+  function barreira() {
+    let resolver!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      resolver = resolve;
+    });
+    return { promise, liberar: () => resolver() };
+  }
+  async function aguardarBloqueioUsuario(quantidade = 1) {
+    const limite = Date.now() + 3000;
+    while (Date.now() < limite) {
+      const [{ total }] = await prisma.$queryRaw<{ total: number }[]>`
+        SELECT count(*)::int AS total FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'
+          AND query ILIKE '%usuarios%'
+      `;
+      if (total >= quantidade) return;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw new Error('A operação não aguardou o bloqueio do usuário');
+  }
+  it('revoga a sessão criada por refresh que começou antes da redefinição', async () => {
+    const login = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send(credenciais)
+      .expect(200);
+    await solicitar().expect(202);
+    const repository = app.get<PrismaSessaoRepository>(SESSAO_REPOSITORY);
+    const original = repository.rotate.bind(repository);
+    const entrou = barreira();
+    const continuar = barreira();
+    vi.spyOn(repository, 'rotate').mockImplementation(async (...args) => {
+      const resultado = await original(...args);
+      entrou.liberar();
+      await continuar.promise;
+      return resultado;
+    });
+    const refresh = request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken })
+      .then((r) => r);
+    await entrou.promise;
+    const reset = redefinir().then((r) => r);
+    try {
+      await aguardarBloqueioUsuario();
+    } finally {
+      continuar.liberar();
+    }
+    const [renovacao, redefinicao] = await Promise.all([refresh, reset]);
+    expect(renovacao.status).toBe(200);
+    expect(redefinicao.status).toBe(204);
+    expect(
+      await prisma.sessao.count({ where: { usuarioId, revogadoEm: null } }),
+    ).toBe(0);
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: renovacao.body.refreshToken })
+      .expect(401);
+  });
+  it('revoga a sessão do login com senha antiga que começou antes da redefinição', async () => {
+    await solicitar().expect(202);
+    const repository = app.get<PrismaSessaoRepository>(SESSAO_REPOSITORY);
+    const original = repository.create.bind(repository);
+    const entrou = barreira();
+    const continuar = barreira();
+    vi.spyOn(repository, 'create').mockImplementation(async (...args) => {
+      await original(...args);
+      entrou.liberar();
+      await continuar.promise;
+    });
+    const login = request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send(credenciais)
+      .then((r) => r);
+    await entrou.promise;
+    const reset = redefinir().then((r) => r);
+    try {
+      await aguardarBloqueioUsuario();
+    } finally {
+      continuar.liberar();
+    }
+    const [autenticacao, redefinicao] = await Promise.all([login, reset]);
+    expect(autenticacao.status).toBe(200);
+    expect(redefinicao.status).toBe(204);
+    expect(
+      await prisma.sessao.count({ where: { usuarioId, revogadoEm: null } }),
+    ).toBe(0);
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: autenticacao.body.refreshToken })
+      .expect(401);
+  });
+  it('nega login antigo e refresh quando a redefinição obtém o bloqueio primeiro', async () => {
+    const login = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send(credenciais)
+      .expect(200);
+    await solicitar().expect(202);
+    const repository = app.get<PrismaRecuperacaoSenhaRepository>(
+      RECUPERACAO_SENHA_REPOSITORY,
+    );
+    const original = repository.invalidarTodos.bind(repository);
+    const entrou = barreira();
+    const continuar = barreira();
+    vi.spyOn(repository, 'invalidarTodos').mockImplementation(
+      async (...args) => {
+        await original(...args);
+        entrou.liberar();
+        await continuar.promise;
+      },
+    );
+    const reset = redefinir().then((r) => r);
+    await entrou.promise;
+    const refresh = request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken })
+      .then((r) => r);
+    const antigo = request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send(credenciais)
+      .then((r) => r);
+    try {
+      await aguardarBloqueioUsuario(2);
+    } finally {
+      continuar.liberar();
+    }
+    const results = await Promise.all([reset, refresh, antigo]);
+    expect(results.map((r) => r.status)).toEqual([204, 401, 401]);
+    expect(
+      await prisma.sessao.count({ where: { usuarioId, revogadoEm: null } }),
+    ).toBe(0);
   });
 });

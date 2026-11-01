@@ -22,10 +22,12 @@ export class UsuarioService {
   async autenticar(
     email: string,
     senha: string,
+    tx?: PrismaTransaction,
   ): Promise<UsuarioAutenticado | null> {
-    const usuario = await this.repository.findByEmail(
-      email.trim().toLowerCase(),
-    );
+    const emailNormalizado = email.trim().toLowerCase();
+    if (tx)
+      await this.repository.bloquearAutenticacaoPorEmail(emailNormalizado, tx);
+    const usuario = await this.repository.findByEmail(emailNormalizado, tx);
     const valido = await this.hasher.verify(
       usuario?.senhaHash ?? (await this.dummyHash),
       senha,
@@ -48,8 +50,14 @@ export class UsuarioService {
   ): Promise<boolean> {
     return this.repository.redefinirSenha(id, senhaHash, tx);
   }
-  async findAtivoById(id: string): Promise<UsuarioAutenticado | null> {
-    const usuario = await this.repository.findById(id);
+  bloquearAutenticacao(id: string, tx: PrismaTransaction): Promise<void> {
+    return this.repository.bloquearAutenticacao(id, tx);
+  }
+  async findAtivoById(
+    id: string,
+    tx?: PrismaTransaction,
+  ): Promise<UsuarioAutenticado | null> {
+    const usuario = await this.repository.findById(id, tx);
     return usuario?.ativo ? usuario.dados : null;
   }
 }

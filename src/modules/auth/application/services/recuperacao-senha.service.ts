@@ -25,15 +25,15 @@ export class RecuperacaoSenhaService {
     if (!usuario) return;
     const { entidade, token } = TokenRecuperacaoSenha.create(usuario.id);
     await this.repository.create(entidade);
-    // Falhas do provedor nÃ£o podem revelar a existÃªncia da conta pela resposta HTTP.
+    // Falhas do provedor não podem revelar a existência da conta pela resposta HTTP.
     try {
       await this.email.enviarRecuperacao(usuario.email, token);
     } catch {
-      /* O usuÃ¡rio pode solicitar outro link. NÃ£o registrar destinatÃ¡rio nem token. */
+      /* O usuário pode solicitar outro link. Não registrar destinatário nem token. */
     }
   }
   async redefinir(token: string, senha: string): Promise<void> {
-    // Argon2 Ã© calculado antes da transaÃ§Ã£o para manter os locks curtos.
+    // Argon2 é calculado antes da transação para manter os locks curtos.
     const hash = await this.usuarios.gerarSenhaHash(senha);
     await this.transactions.run(async (tx) => {
       const tokenHash = TokenRecuperacaoSenha.hashToken(token);
@@ -50,7 +50,7 @@ export class RecuperacaoSenhaService {
   private invalido(): never {
     throw new AuthenticationError(
       'TOKEN_RECUPERACAO_INVALIDO',
-      'Token de recuperaÃ§Ã£o invÃ¡lido ou expirado',
+      'Token de recuperação inválido ou expirado',
     );
   }
 }

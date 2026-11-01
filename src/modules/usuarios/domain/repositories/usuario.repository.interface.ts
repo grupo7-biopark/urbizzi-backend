@@ -7,6 +7,11 @@ export interface UsuarioRepository {
     senhaHash: string,
     tx: PrismaTransaction,
   ): Promise<boolean>;
-  findById(id: string): Promise<Usuario | null>;
-  findByEmail(email: string): Promise<Usuario | null>;
+  bloquearAutenticacao(id: string, tx: PrismaTransaction): Promise<void>;
+  bloquearAutenticacaoPorEmail(
+    email: string,
+    tx: PrismaTransaction,
+  ): Promise<void>;
+  findById(id: string, tx?: PrismaTransaction): Promise<Usuario | null>;
+  findByEmail(email: string, tx?: PrismaTransaction): Promise<Usuario | null>;
 }
