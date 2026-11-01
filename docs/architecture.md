@@ -724,3 +724,7 @@ Módulos importados e services usados; services exportados e quem os usa; evento
 ```
 
 Os testes deste exemplo estão em [testing.md](testing.md#exemplos).
+
+### Recuperação de senha (BE-08)
+
+`RecuperacaoSenhaService` usa `UsuarioService` para consultar contas ativas, gerar hash e alterar senha dentro da transação. O repositório de recuperação acessa somente as tabelas de `auth` (tokens e sessões). `EmailModule`, em `shared/infra/email`, implementa o contrato técnico `shared/application/email/Email` com SMTP via Nodemailer. Não possui tabelas. O SMTP é chamado depois de persistir o token, fora de transação.

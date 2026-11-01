@@ -1,3 +1,4 @@
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/infra/database/prisma.service.js';
 import { Usuario } from '../../domain/models/usuario.entity.js';
@@ -5,6 +6,17 @@ import type { UsuarioRepository } from '../../domain/repositories/usuario.reposi
 @Injectable()
 export class PrismaUsuarioRepository implements UsuarioRepository {
   constructor(private readonly prisma: PrismaService) {}
+  async redefinirSenha(
+    id: string,
+    senhaHash: string,
+    tx: PrismaTransaction,
+  ): Promise<boolean> {
+    const { count } = await tx.usuario.updateMany({
+      where: { id, ativo: true },
+      data: { senhaHash },
+    });
+    return count === 1;
+  }
   async findById(id: string): Promise<Usuario | null> {
     return this.find({ id });
   }

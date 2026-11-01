@@ -1,3 +1,4 @@
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import {
@@ -30,6 +31,22 @@ export class UsuarioService {
       senha,
     );
     return usuario?.ativo && valido ? usuario.dados : null;
+  }
+  async findAtivoByEmail(email: string): Promise<UsuarioAutenticado | null> {
+    const usuario = await this.repository.findByEmail(
+      email.trim().toLowerCase(),
+    );
+    return usuario?.ativo ? usuario.dados : null;
+  }
+  gerarSenhaHash(senha: string): Promise<string> {
+    return this.hasher.hash(senha);
+  }
+  redefinirSenha(
+    id: string,
+    senhaHash: string,
+    tx: PrismaTransaction,
+  ): Promise<boolean> {
+    return this.repository.redefinirSenha(id, senhaHash, tx);
   }
   async findAtivoById(id: string): Promise<UsuarioAutenticado | null> {
     const usuario = await this.repository.findById(id);
