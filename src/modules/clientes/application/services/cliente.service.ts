@@ -72,7 +72,9 @@ export class ClienteService {
           valorAnterior: anterior,
           valorNovo: {
             ...cliente.auditoria,
-            camposAlterados: Object.keys(dto),
+            camposAlterados: Object.entries(dto)
+              .filter(([, value]) => value !== undefined)
+              .map(([chave]) => chave),
           },
         },
         tx,
