@@ -16,8 +16,9 @@ import type {
   PlantaRepository,
 } from '../../domain/repositories/planta.repository.interface.js';
 
-/** Chave do advisory lock que serializa a numeração de versões. */
+/** Chaves dos advisory locks: numeração de versões e troca da planta ativa. */
 const LOCK_VERSAO = 7_301_001;
+const LOCK_ATIVA = 7_301_002;
 
 @Injectable()
 export class PrismaPlantaRepository implements PlantaRepository {
@@ -51,6 +52,17 @@ export class PrismaPlantaRepository implements PlantaRepository {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_VERSAO})`;
     const { _max } = await tx.planta.aggregate({ _max: { versao: true } });
     return (_max.versao ?? 0) + 1;
+  }
+
+  async findAtiva(): Promise<Planta | null> {
+    const row = await this.prisma.planta.findFirst({ where: { ativa: true } });
+    return row ? this.toEntity(row) : null;
+  }
+
+  async travarAtiva(tx: PrismaTransaction): Promise<Planta | null> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_ATIVA})`;
+    const row = await tx.planta.findFirst({ where: { ativa: true } });
+    return row ? this.toEntity(row) : null;
   }
 
   async create(planta: Planta, tx?: PrismaTransaction): Promise<void> {

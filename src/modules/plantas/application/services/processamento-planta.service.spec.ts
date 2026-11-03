@@ -49,6 +49,8 @@ function setup() {
     create: vi.fn(),
     update: vi.fn(),
     reservarProxima: vi.fn(),
+    findAtiva: vi.fn(),
+    travarAtiva: vi.fn(),
     marcarInterrompidas: vi.fn(),
   } satisfies PlantaRepository;
   const enviados = new Map<string, string>();

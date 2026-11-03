@@ -1,5 +1,6 @@
 import { createReadStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import { Inject, Injectable } from '@nestjs/common';
 import { PaginatedDto } from '../../../../shared/application/dto/paginated.dto.js';
 import {
@@ -20,6 +21,7 @@ import {
   nomeFatia,
   type PosicaoFatia,
 } from '../../domain/models/grade-fatias.entity.js';
+import { calcularPiramide } from '../../domain/models/piramide-tiles.entity.js';
 import { Planta } from '../../domain/models/planta.entity.js';
 import {
   PLANTA_REPOSITORY,
@@ -31,6 +33,7 @@ import {
   type ProcessadorImagem,
 } from '../../domain/repositories/processador-imagem.interface.js';
 import type { ListPlantasQueryDto } from '../dto/list-plantas-query.dto.js';
+import { PlantaAtivaDto } from '../dto/planta-ativa.dto.js';
 import { PlantaDto } from '../dto/planta.dto.js';
 
 const ENTIDADE_TIPO = 'Planta';
@@ -149,6 +152,83 @@ export class PlantaService {
       return atual;
     });
     return PlantaDto.from(planta);
+  }
+
+  /** Torna a planta PRONTA a exibida no mapa, desativando a anterior. */
+  async ativar(id: string, usuario: UsuarioAutenticado): Promise<PlantaDto> {
+    const planta = await this.transactionManager.run(async (tx) => {
+      const anterior = await this.plantaRepository.travarAtiva(tx);
+      const nova = await this.getOrFail(id, tx);
+      if (anterior?.id === nova.id) return nova;
+      nova.ativar();
+      if (anterior) {
+        anterior.desativar();
+        await this.plantaRepository.update(anterior, tx);
+        await this.auditoriaService.registrar(
+          {
+            usuarioId: usuario.id,
+            entidadeTipo: ENTIDADE_TIPO,
+            entidadeId: anterior.id,
+            acao: 'DESATIVAR',
+            valorAnterior: { ...anterior.auditoria, ativa: true },
+            valorNovo: { ...anterior.auditoria },
+          },
+          tx,
+        );
+      }
+      await this.plantaRepository.update(nova, tx);
+      await this.auditoriaService.registrar(
+        {
+          usuarioId: usuario.id,
+          entidadeTipo: ENTIDADE_TIPO,
+          entidadeId: nova.id,
+          acao: 'ATIVAR',
+          valorAnterior: { ...nova.auditoria, ativa: false },
+          valorNovo: { ...nova.auditoria },
+        },
+        tx,
+      );
+      return nova;
+    });
+    return PlantaDto.from(planta);
+  }
+
+  /** Planta exibida no mapa, com o modelo de URL dos tiles. */
+  async ativa(): Promise<PlantaAtivaDto> {
+    const planta = await this.plantaRepository.findAtiva();
+    if (!planta) {
+      throw new NotFoundError(
+        'PLANTA_ATIVA_NAO_ENCONTRADA',
+        'Nenhuma planta ativa no momento',
+      );
+    }
+    return PlantaAtivaDto.from(planta);
+  }
+
+  /**
+   * Conteúdo de um tile de planta PRONTA. Coordenadas fora da pirâmide
+   * retornam 404 sem consultar o armazenamento.
+   */
+  async tile(id: string, z: number, x: number, y: number): Promise<Readable> {
+    const planta = await this.plantaRepository.findById(id);
+    const nivel =
+      planta?.status === 'PRONTA' &&
+      planta.larguraPx &&
+      planta.alturaPx &&
+      planta.tamanhoTile
+        ? calcularPiramide(
+            planta.larguraPx,
+            planta.alturaPx,
+            planta.tamanhoTile,
+          ).niveis[z]
+        : undefined;
+    if (!planta || !nivel || x >= nivel.colunas || y >= nivel.linhas) {
+      throw new NotFoundError('TILE_NAO_ENCONTRADO', 'Tile não encontrado');
+    }
+    return this.storage.download(
+      'tiles',
+      `${planta.tilesPath}/${z}/${x}/${y}.webp`,
+    );
   }
 
   async findById(id: string): Promise<PlantaDto> {
