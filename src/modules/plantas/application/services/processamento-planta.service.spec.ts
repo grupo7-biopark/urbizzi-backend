@@ -196,6 +196,38 @@ describe('ProcessamentoPlantaService', () => {
     expect(storage.upload.mock.calls.length).toBeLessThanOrEqual(8);
   });
 
+  it('aguarda os uploads em andamento antes de limpar os temporários', async () => {
+    const { service, repository, storage } = setup();
+    repository.reservarProxima.mockResolvedValue(plantaEmProcessamento());
+    let liberar!: () => void;
+    let iniciou!: () => void;
+    const iniciado = new Promise<void>((resolve) => {
+      iniciou = resolve;
+    });
+    const pendente = new Promise<void>((resolve) => {
+      liberar = resolve;
+    });
+    let chamadas = 0;
+    storage.upload.mockImplementation(async ({ body }: UploadInput) => {
+      (body as Readable).destroy();
+      if (++chamadas === 1) throw new Error('armazenamento fora');
+      iniciou();
+      await pendente;
+    });
+    const processamento = service.processarProxima();
+    await iniciado;
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(repository.update).not.toHaveBeenCalled();
+    } finally {
+      liberar();
+      await processamento;
+    }
+    expect(repository.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ERRO' }),
+    );
+  });
+
   it('falha se o original não puder ser baixado', async () => {
     const { service, repository, storage, processador } = setup();
     const planta = plantaEmProcessamento();

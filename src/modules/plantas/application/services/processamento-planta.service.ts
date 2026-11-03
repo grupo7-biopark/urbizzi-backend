@@ -152,6 +152,14 @@ export class ProcessamentoPlantaService {
         }
       }
     };
-    await Promise.all(Array.from({ length: ENVIOS_SIMULTANEOS }, enviar));
+    // Os uploads em andamento ainda leem os temporários após uma falha.
+    // Aguarde todos antes de propagar o erro e permitir a limpeza da pasta.
+    const resultados = await Promise.allSettled(
+      Array.from({ length: ENVIOS_SIMULTANEOS }, enviar),
+    );
+    const falha = resultados.find(
+      (resultado) => resultado.status === 'rejected',
+    );
+    if (falha?.status === 'rejected') throw falha.reason;
   }
 }
