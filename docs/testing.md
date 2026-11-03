@@ -58,6 +58,7 @@ beforeEach(async () => {
 
 - Por isso os arquivos e2e rodam **em sequência** (`fileParallelism: false` em `vitest.config.e2e.ts`); os testes dentro de um arquivo também são sequenciais.
 - Testes que dependem de dados obrigatórios do seed (perfis, configurações) criam esses dados no próprio teste, até a BE-05 oferecer um helper de seed.
+- Para testar rotas autenticadas, `criarUsuarios(app)` (`test/helpers/usuarios.ts`) cria os quatro perfis e um usuário de cada, e devolve `{ id, token }` por perfil. Chame depois de `limparBanco`.
 
 - Nunca rode e2e apontando para banco de produção.
 
