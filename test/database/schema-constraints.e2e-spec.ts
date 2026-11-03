@@ -163,6 +163,23 @@ describe('Restrições do schema (integração)', () => {
       await expect(criarLote(quadra.id, '10')).resolves.toBeDefined();
     });
 
+    it('não permite dois loteamentos ativos com o mesmo nome', async () => {
+      const loteamento = await prisma.loteamento.create({
+        data: { nome: 'Bela Vista' },
+      });
+
+      await expect(
+        prisma.loteamento.create({ data: { nome: 'Bela Vista' } }),
+      ).rejects.toMatchObject({ code: 'P2002' });
+      await prisma.loteamento.update({
+        where: { id: loteamento.id },
+        data: { deletedAt: new Date() },
+      });
+      await expect(
+        prisma.loteamento.create({ data: { nome: 'Bela Vista' } }),
+      ).resolves.toBeDefined();
+    });
+
     it('não permite duas quadras com o mesmo número no loteamento', async () => {
       const quadra = await criarQuadra();
 
