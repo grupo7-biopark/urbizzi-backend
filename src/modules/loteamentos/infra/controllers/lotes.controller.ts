@@ -1,3 +1,4 @@
+import { BloquearLoteDto } from '../../application/dto/bloquear-lote.dto.js';
 import {
   Body,
   Controller,
@@ -78,5 +79,29 @@ export class LotesController {
     @CurrentUser() usuario: UsuarioAutenticado,
   ): Promise<void> {
     return this.loteService.delete(id, usuario);
+  }
+  /** Bloqueia um lote disponível por decisão administrativa */
+  @Post(':id/bloquear')
+  @HttpCode(200)
+  @Perfis('ADMINISTRADOR', 'GESTOR')
+  @ApiErrorResponses(400, 401, 403, 404, 409, 422)
+  bloquear(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: BloquearLoteDto,
+    @CurrentUser() usuario: UsuarioAutenticado,
+  ): Promise<LoteDto> {
+    return this.loteService.bloquear(id, dto, usuario);
+  }
+
+  /** Devolve um lote bloqueado à disponibilidade */
+  @Post(':id/desbloquear')
+  @HttpCode(200)
+  @Perfis('ADMINISTRADOR', 'GESTOR')
+  @ApiErrorResponses(400, 401, 403, 404, 409)
+  desbloquear(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() usuario: UsuarioAutenticado,
+  ): Promise<LoteDto> {
+    return this.loteService.desbloquear(id, usuario);
   }
 }

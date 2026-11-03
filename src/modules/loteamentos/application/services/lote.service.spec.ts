@@ -30,6 +30,7 @@ describe('LoteService', () => {
 
   beforeEach(() => {
     repository = {
+      alterarStatus: vi.fn(),
       findById: vi.fn(),
       existsByNumero: vi.fn().mockResolvedValue(false),
       list: vi.fn(),
