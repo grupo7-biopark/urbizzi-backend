@@ -1,3 +1,7 @@
+import { RecuperacaoSenhaService } from '../../application/services/recuperacao-senha.service.js';
+import { ForgotPasswordDto } from '../../application/dto/forgot-password.dto.js';
+import { ResetPasswordDto } from '../../application/dto/reset-password.dto.js';
+import { ApiAcceptedResponse } from '@nestjs/swagger';
 import {
   Body,
   Controller,
@@ -25,7 +29,37 @@ import { UsuarioLogadoDto } from '../../application/dto/usuario-logado.dto.js';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly recuperacao: RecuperacaoSenhaService,
+  ) {}
+  /** Solicita um link de recuperação sem revelar se a conta existe */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(202)
+  @UseGuards(ThrottlerGuard)
+  @Header('Cache-Control', 'no-store')
+  @ApiAcceptedResponse({
+    description:
+      'Se o e-mail estiver cadastrado e ativo, enviaremos as instruções de recuperação.',
+  })
+  @ApiErrorResponses(400, 429)
+  solicitar(@Body() dto: ForgotPasswordDto): Promise<void> {
+    return this.recuperacao.solicitar(dto.email);
+  }
+  /** Redefine a senha e revoga os refresh tokens anteriores */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(204)
+  @UseGuards(ThrottlerGuard)
+  @Header('Cache-Control', 'no-store')
+  @ApiNoContentResponse({
+    description: 'Senha redefinida; faça login novamente',
+  })
+  @ApiErrorResponses(400, 401, 429)
+  redefinir(@Body() dto: ResetPasswordDto): Promise<void> {
+    return this.recuperacao.redefinir(dto.token, dto.senha);
+  }
   /** Autentica o usuário e inicia uma sessão */
   @Public()
   @ApiOkResponse({ type: TokensDto })

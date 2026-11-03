@@ -1,6 +1,6 @@
 # Segurança
 
-> Status: autenticação (BE-07) e autorização por perfil (BE-09) implementadas. Recuperação de senha (BE-08) continua prevista. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
+> Status: autenticação (BE-07) e autorização por perfil (BE-09) implementadas. Recuperação de senha (BE-08) implementada. A matriz de permissões segue o [escopo v2](<Urbizzi - Escopo do Sistema v2.md>).
 
 ## Autenticação
 
@@ -19,9 +19,11 @@
 
 ### Recuperação de senha (BE-08)
 
-- `POST /v1/auth/recuperar-senha` sempre responde `202`, exista ou não o e-mail.
+- `POST /v1/auth/forgot-password` sempre responde `202`, exista ou não o e-mail.
 - Token aleatório de 32 bytes (`randomBytes`), enviado por e-mail; no banco fica só o **hash SHA-256** em `TokenRecuperacaoSenha`, com expiração de 1 hora e uso único.
-- Ao redefinir a senha, todos os tokens de recuperação do usuário são invalidados.
+- `POST /v1/auth/reset-password` recebe `{ token, senha }` e responde 204. Ao redefinir, todos os tokens de recuperação são invalidados e todos os refresh tokens são revogados na mesma transação. A senha anterior deixa de autenticar. JWTs de acesso já emitidos permanecem válidos até expirar.
+- Token inválido, expirado ou usado retorna `401 TOKEN_RECUPERACAO_INVALIDO`. Ambas as rotas têm limite de 5 tentativas por IP/rota/minuto.
+- E-mail via contrato `Email` e adapter SMTP; Mailpit no compose local. Falha de envio não altera a resposta 202; não registrar tokens nem destinatários.
 
 ## Autorização por perfil
 
@@ -153,3 +155,7 @@ Regras:
 - Upload de arquivos (BE-30): limite de tamanho, lista de tipos MIME permitidos e nome do objeto gerado pelo servidor (nunca o nome enviado pelo usuário).
 - SQL cru só com `$queryRaw` usando template tag (parâmetros escapados); `$queryRawUnsafe`/`$executeRawUnsafe` só com strings fixas, nunca com entrada do usuário.
 - Dependências: não adicione pacotes sem manutenção; rode `npm audit` ao atualizar.
+
+### Sessões simultâneas à troca de senha
+
+Login e refresh são serializados com a redefinição pela linha do usuário. O login verifica a senha sob esse bloqueio; o refresh consome e cria sessões na mesma transação que mantém o bloqueio. A redefinição atualiza o usuário antes de consumir o token e revogar sessões. Uma sessão criada antes dela será revogada; após ela, a senha antiga e os refresh tokens anteriores não podem iniciar nova sessão. JWTs de acesso mantêm sua validade até expirar.

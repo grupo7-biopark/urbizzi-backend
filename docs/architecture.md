@@ -725,6 +725,11 @@ Módulos importados e services usados; services exportados e quem os usa; evento
 
 Os testes deste exemplo estão em [testing.md](testing.md#exemplos).
 
+### Recuperação de senha (BE-08)
+
+`RecuperacaoSenhaService` usa `UsuarioService` para consultar contas ativas, gerar hash e alterar senha dentro da transação. O repositório de recuperação acessa somente as tabelas de `auth` (tokens e sessões). `EmailModule`, em `shared/infra/email`, implementa o contrato técnico `shared/application/email/Email` com SMTP via Nodemailer. Não possui tabelas. O SMTP é chamado depois de persistir o token, fora de transação.
+
+Na autenticação, `AuthService` abre as transações de login/refresh com `TransactionManager`. `UsuarioService` coordena o bloqueio de credenciais no repositório dono de `usuarios`, e o repositório de sessões recebe a mesma transação para criação/rotação. A redefinição usa o mesmo bloqueio ao atualizar a senha, sempre antes de consumir tokens e revogar sessões. Isso evita sessões sobreviventes em requisições simultâneas sem migração ou acoplamento entre repositórios de módulos distintos.
 ## Entregas BE-11, BE-13, BE-18, BE-26 e BE-37
 
 Configurações exporta leitura tipada de prazos e usa cache local invalidado após commit. Clientes fornece cadastro/busca com documento validado e snapshots de auditoria mascarados. Links públicos usa o LoteamentoService exportado para validar escopo opcional e mantém tokens fora da auditoria. Bloqueio/desbloqueio usa atualização condicional do status anterior e grava a auditoria na mesma transação.
