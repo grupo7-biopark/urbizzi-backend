@@ -16,6 +16,8 @@ vi.mock('node:fs', () => ({
 
 const usuario: UsuarioAutenticado = {
   id: 'f1b2c3d4-0000-4000-8000-000000000001',
+  nome: 'Gestor',
+  email: 'gestor@exemplo.com',
   perfil: 'GESTOR',
 };
 
@@ -27,10 +29,11 @@ function setup(metadados: Record<string, MetadadosImagem | null> = {}) {
     create: vi.fn(),
   } satisfies PlantaRepository;
   const processador = {
-    lerMetadados: vi.fn(async (caminho: string) =>
-      caminho in metadados
-        ? metadados[caminho]
-        : { formato: 'png', largura: 100, altura: 50 },
+    lerMetadados: vi.fn(
+      async (caminho: string): Promise<MetadadosImagem | null> =>
+        caminho in metadados
+          ? metadados[caminho]
+          : { formato: 'png', largura: 100, altura: 50 },
     ),
   } satisfies ProcessadorImagem;
   const storage = {
