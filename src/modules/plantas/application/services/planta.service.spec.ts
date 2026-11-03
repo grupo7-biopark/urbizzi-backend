@@ -27,6 +27,9 @@ function setup(metadados: Record<string, MetadadosImagem | null> = {}) {
     list: vi.fn(),
     proximaVersao: vi.fn().mockResolvedValue(3),
     create: vi.fn(),
+    update: vi.fn(),
+    reservarProxima: vi.fn(),
+    marcarInterrompidas: vi.fn(),
   } satisfies PlantaRepository;
   const processador = {
     lerMetadados: vi.fn(
@@ -35,6 +38,7 @@ function setup(metadados: Record<string, MetadadosImagem | null> = {}) {
           ? metadados[caminho]
           : { formato: 'png', largura: 100, altura: 50 },
     ),
+    gerarTiles: vi.fn(),
   } satisfies ProcessadorImagem;
   const storage = {
     upload: vi.fn(),
@@ -199,6 +203,65 @@ describe('PlantaService', () => {
       );
       expect(storage.delete).toHaveBeenCalledTimes(9);
       expect(repository.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reprocessar', () => {
+    function plantaCom(status: 'ERRO' | 'PRONTA') {
+      const planta = Planta.create({
+        nome: 'P',
+        versao: 1,
+        gradeLinhas: 1,
+        gradeColunas: 1,
+        originais: [],
+        criadoPorId: usuario.id,
+      });
+      if (status === 'ERRO') planta.falharProcessamento('falhou');
+      else
+        planta.concluirProcessamento({
+          larguraPx: 1,
+          alturaPx: 1,
+          maxZoom: 0,
+          tamanhoTile: 256,
+          tilesPath: 'plantas/x',
+        });
+      return planta;
+    }
+
+    it('devolve a planta com erro para a fila, com auditoria', async () => {
+      const { service, repository, auditoria } = setup();
+      const planta = plantaCom('ERRO');
+      repository.findById.mockResolvedValue(planta);
+
+      const dto = await service.reprocessar(planta.id, usuario);
+
+      expect(dto).toMatchObject({ status: 'ENVIADA', mensagemErro: null });
+      expect(repository.update).toHaveBeenCalledWith(planta, {});
+      expect(auditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: 'REPROCESSAR',
+          valorAnterior: expect.objectContaining({ status: 'ERRO' }),
+          valorNovo: expect.objectContaining({ status: 'ENVIADA' }),
+        }),
+        {},
+      );
+    });
+
+    it('recusa planta sem erro', async () => {
+      const { service, repository } = setup();
+      repository.findById.mockResolvedValue(plantaCom('PRONTA'));
+      await expect(service.reprocessar('id', usuario)).rejects.toMatchObject({
+        code: 'PLANTA_NAO_REPROCESSAVEL',
+      });
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 para planta inexistente', async () => {
+      const { service, repository } = setup();
+      repository.findById.mockResolvedValue(null);
+      await expect(service.reprocessar('id', usuario)).rejects.toMatchObject({
+        code: 'PLANTA_NAO_ENCONTRADA',
+      });
     });
   });
 

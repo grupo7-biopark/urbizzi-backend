@@ -48,6 +48,9 @@ describe('Planta', () => {
       alturaPx: 50,
       tilesPath: 'plantas/x/tiles',
       maxZoom: 2,
+      tamanhoTile: 256,
+      mensagemErro: null,
+      processamentoIniciadoEm: null,
       gradeLinhas: 1,
       gradeColunas: 2,
       originais: [],
@@ -69,5 +72,50 @@ describe('Planta', () => {
       ativa: true,
       grade: '1 x 2',
     });
+  });
+
+  describe('processamento', () => {
+    const metadados = {
+      larguraPx: 600,
+      alturaPx: 400,
+      maxZoom: 2,
+      tamanhoTile: 256,
+      tilesPath: 'plantas/x',
+    };
+
+    it('conclui como PRONTA com os metadados', () => {
+      const planta = Planta.create(input);
+      planta.falharProcessamento('falhou');
+      planta.concluirProcessamento(metadados);
+      expect(planta).toMatchObject({
+        ...metadados,
+        status: 'PRONTA',
+        mensagemErro: null,
+        processamentoIniciadoEm: null,
+      });
+    });
+
+    it('registra a falha e permite reprocessar', () => {
+      const planta = Planta.create(input);
+      planta.falharProcessamento('Imagem corrompida');
+      expect(planta).toMatchObject({
+        status: 'ERRO',
+        mensagemErro: 'Imagem corrompida',
+      });
+
+      planta.reprocessar();
+      expect(planta).toMatchObject({ status: 'ENVIADA', mensagemErro: null });
+    });
+
+    it.each(['ENVIADA', 'PRONTA'] as const)(
+      'não reprocessa planta %s',
+      (status) => {
+        const planta = Planta.create(input);
+        if (status === 'PRONTA') planta.concluirProcessamento(metadados);
+        expect(() => planta.reprocessar()).toThrow(
+          expect.objectContaining({ code: 'PLANTA_NAO_REPROCESSAVEL' }),
+        );
+      },
+    );
   });
 });

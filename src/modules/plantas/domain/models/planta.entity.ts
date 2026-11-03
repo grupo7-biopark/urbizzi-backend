@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { ConflictError } from '../../../../shared/domain/errors/domain.error.js';
 
 export type StatusPlanta = 'ENVIADA' | 'PROCESSANDO' | 'PRONTA' | 'ERRO';
 
@@ -11,6 +12,9 @@ export interface PlantaProps {
   alturaPx: number | null;
   tilesPath: string | null;
   maxZoom: number | null;
+  tamanhoTile: number | null;
+  mensagemErro: string | null;
+  processamentoIniciadoEm: Date | null;
   gradeLinhas: number;
   gradeColunas: number;
   /** Chaves dos originais no armazenamento, linha a linha. */
@@ -30,6 +34,15 @@ export interface CreatePlantaInput {
   gradeColunas: number;
   originais: string[];
   criadoPorId: string;
+}
+
+/** Resultado do processamento em tiles. */
+export interface MetadadosTiles {
+  larguraPx: number;
+  alturaPx: number;
+  maxZoom: number;
+  tamanhoTile: number;
+  tilesPath: string;
 }
 
 /** Campos registrados no histórico de auditoria. */
@@ -56,6 +69,9 @@ export class Planta {
       alturaPx: null,
       tilesPath: null,
       maxZoom: null,
+      tamanhoTile: null,
+      mensagemErro: null,
+      processamentoIniciadoEm: null,
       gradeLinhas: input.gradeLinhas,
       gradeColunas: input.gradeColunas,
       originais: [...input.originais],
@@ -102,6 +118,18 @@ export class Planta {
     return this.props.maxZoom;
   }
 
+  get tamanhoTile() {
+    return this.props.tamanhoTile;
+  }
+
+  get mensagemErro() {
+    return this.props.mensagemErro;
+  }
+
+  get processamentoIniciadoEm() {
+    return this.props.processamentoIniciadoEm;
+  }
+
   get gradeLinhas() {
     return this.props.gradeLinhas;
   }
@@ -139,6 +167,45 @@ export class Planta {
       status,
       ativa,
       grade: `${gradeLinhas} x ${gradeColunas}`,
+    };
+  }
+
+  /** Conclui o processamento com os metadados dos tiles gerados. */
+  concluirProcessamento(metadados: MetadadosTiles): void {
+    this.props = {
+      ...this.props,
+      ...metadados,
+      status: 'PRONTA',
+      mensagemErro: null,
+      processamentoIniciadoEm: null,
+      updatedAt: new Date(),
+    };
+  }
+
+  /** Registra a falha; a planta pode ser reprocessada depois. */
+  falharProcessamento(mensagem: string): void {
+    this.props = {
+      ...this.props,
+      status: 'ERRO',
+      mensagemErro: mensagem,
+      processamentoIniciadoEm: null,
+      updatedAt: new Date(),
+    };
+  }
+
+  /** Devolve uma planta com ERRO para a fila de processamento. */
+  reprocessar(): void {
+    if (this.props.status !== 'ERRO') {
+      throw new ConflictError(
+        'PLANTA_NAO_REPROCESSAVEL',
+        'Só é possível reprocessar uma planta com erro',
+      );
+    }
+    this.props = {
+      ...this.props,
+      status: 'ENVIADA',
+      mensagemErro: null,
+      updatedAt: new Date(),
     };
   }
 }

@@ -72,6 +72,63 @@ export class PrismaPlantaRepository implements PlantaRepository {
     });
   }
 
+  async update(planta: Planta, tx?: PrismaTransaction): Promise<void> {
+    const db = tx ?? this.prisma;
+    await db.planta.update({
+      where: { id: planta.id },
+      data: {
+        nome: planta.nome,
+        status: planta.status,
+        larguraPx: planta.larguraPx,
+        alturaPx: planta.alturaPx,
+        tilesPath: planta.tilesPath,
+        maxZoom: planta.maxZoom,
+        tamanhoTile: planta.tamanhoTile,
+        mensagemErro: planta.mensagemErro,
+        processamentoIniciadoEm: planta.processamentoIniciadoEm,
+        ativa: planta.ativa,
+        updatedAt: planta.updatedAt,
+      },
+    });
+  }
+
+  async reservarProxima(): Promise<Planta | null> {
+    const [reservada] = await this.prisma.$queryRaw<{ id: string }[]>`
+      UPDATE plantas
+      SET status = 'PROCESSANDO',
+          processamento_iniciado_em = now(),
+          mensagem_erro = NULL,
+          updated_at = now()
+      WHERE id = (
+        SELECT id FROM plantas
+        WHERE status = 'ENVIADA'
+        ORDER BY created_at
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING id
+    `;
+    return reservada ? this.findById(reservada.id) : null;
+  }
+
+  async marcarInterrompidas(
+    iniciadasAntesDe: Date,
+    mensagem: string,
+  ): Promise<number> {
+    const { count } = await this.prisma.planta.updateMany({
+      where: {
+        status: 'PROCESSANDO',
+        processamentoIniciadoEm: { lt: iniciadasAntesDe },
+      },
+      data: {
+        status: 'ERRO',
+        mensagemErro: mensagem,
+        processamentoIniciadoEm: null,
+      },
+    });
+    return count;
+  }
+
   private toEntity(row: PlantaRecord): Planta {
     return Planta.restore({
       id: row.id,
@@ -82,6 +139,9 @@ export class PrismaPlantaRepository implements PlantaRepository {
       alturaPx: row.alturaPx,
       tilesPath: row.tilesPath,
       maxZoom: row.maxZoom,
+      tamanhoTile: row.tamanhoTile,
+      mensagemErro: row.mensagemErro,
+      processamentoIniciadoEm: row.processamentoIniciadoEm,
       gradeLinhas: row.gradeLinhas,
       gradeColunas: row.gradeColunas,
       originais: row.originais,

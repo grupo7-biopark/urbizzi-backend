@@ -23,6 +23,8 @@ describe('validate (env)', () => {
       S3_BUCKET_ORIGINAIS: 'plantas-originais',
       S3_BUCKET_TILES: 'plantas-tiles',
       S3_URL_EXPIRES_IN: 900,
+      PLANTAS_PROCESSAMENTO_ATIVO: true,
+      PLANTAS_FILA_INTERVALO_MS: 5000,
       JWT_SECRET: validEnv.JWT_SECRET,
       JWT_EXPIRES_IN: 900,
       REFRESH_TOKEN_EXPIRES_IN: 604800,
@@ -48,6 +50,26 @@ describe('validate (env)', () => {
     { JWT_EXPIRES_IN: 0 },
     { REFRESH_TOKEN_EXPIRES_IN: -1 },
   ])('rejeita configuração de token inválida %j', (config) => {
+    expect(() => validate({ ...validEnv, ...config })).toThrow();
+  });
+
+  it('lê a configuração da fila de plantas', () => {
+    expect(
+      validate({
+        ...validEnv,
+        PLANTAS_PROCESSAMENTO_ATIVO: 'false',
+        PLANTAS_FILA_INTERVALO_MS: '250',
+      }),
+    ).toMatchObject({
+      PLANTAS_PROCESSAMENTO_ATIVO: false,
+      PLANTAS_FILA_INTERVALO_MS: 250,
+    });
+  });
+
+  it.each([
+    { PLANTAS_PROCESSAMENTO_ATIVO: 'sim' },
+    { PLANTAS_FILA_INTERVALO_MS: 50 },
+  ])('rejeita configuração da fila inválida %j', (config) => {
     expect(() => validate({ ...validEnv, ...config })).toThrow();
   });
 

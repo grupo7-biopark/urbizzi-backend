@@ -15,4 +15,17 @@ export interface ProcessadorImagem {
    * pixels. Devolve null se não for uma imagem PNG ou JPEG válida.
    */
   lerMetadados(caminho: string): Promise<MetadadosImagem | null>;
+
+  /**
+   * Junta as imagens (linha a linha, `colunas` por linha) e grava em
+   * `destino` a pirâmide de tiles WebP no layout `<z>/<y>/<x>.webp`.
+   * Processa em faixas, sem carregar a imagem completa na memória.
+   * Devolve as dimensões da imagem completa.
+   */
+  gerarTiles(
+    arquivos: string[],
+    colunas: number,
+    destino: string,
+    tamanhoTile: number,
+  ): Promise<{ largura: number; altura: number }>;
 }

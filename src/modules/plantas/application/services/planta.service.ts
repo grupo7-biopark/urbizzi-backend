@@ -125,6 +125,32 @@ export class PlantaService {
     }
   }
 
+  /** Devolve uma planta com ERRO para a fila de processamento. */
+  async reprocessar(
+    id: string,
+    usuario: UsuarioAutenticado,
+  ): Promise<PlantaDto> {
+    const planta = await this.transactionManager.run(async (tx) => {
+      const atual = await this.getOrFail(id, tx);
+      const anterior = { ...atual.auditoria };
+      atual.reprocessar();
+      await this.plantaRepository.update(atual, tx);
+      await this.auditoriaService.registrar(
+        {
+          usuarioId: usuario.id,
+          entidadeTipo: ENTIDADE_TIPO,
+          entidadeId: atual.id,
+          acao: 'REPROCESSAR',
+          valorAnterior: anterior,
+          valorNovo: { ...atual.auditoria },
+        },
+        tx,
+      );
+      return atual;
+    });
+    return PlantaDto.from(planta);
+  }
+
   async findById(id: string): Promise<PlantaDto> {
     return PlantaDto.from(await this.getOrFail(id));
   }
