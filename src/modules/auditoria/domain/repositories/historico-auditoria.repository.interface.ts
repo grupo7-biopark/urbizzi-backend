@@ -5,4 +5,8 @@ export const HISTORICO_AUDITORIA_REPOSITORY = Symbol(
 );
 export interface HistoricoAuditoriaRepository {
   create(historico: HistoricoAuditoria, tx?: PrismaTransaction): Promise<void>;
+  createMany(
+    historicos: HistoricoAuditoria[],
+    tx?: PrismaTransaction,
+  ): Promise<void>;
 }

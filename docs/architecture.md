@@ -201,7 +201,7 @@ Portas técnicas de autenticação (`AccessToken`) ficam em `domain/repositories
 
 ## Auditoria
 
-O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)`. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. Importe `AuditoriaModule` no módulo consumidor e injete `AuditoriaService` exportado. O método retorna `Promise<void>` e propaga falhas; não capture o erro dentro da transação para continuar a alteração.
+O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)` e, para operações em lote, `registrarVarios([...], tx)`, que grava todos os registros em uma única inserção. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. Importe `AuditoriaModule` no módulo consumidor e injete `AuditoriaService` exportado. O método retorna `Promise<void>` e propaga falhas; não capture o erro dentro da transação para continuar a alteração.
 
 ```ts
 await this.transactionManager.run(async (tx) => {
