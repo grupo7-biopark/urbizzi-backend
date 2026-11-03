@@ -2,6 +2,7 @@ import {
   ArgumentsHost,
   ForbiddenException,
   NotFoundException,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma } from '../../../../generated/prisma/client.js';
@@ -62,6 +63,17 @@ describe('AllExceptionsFilter', () => {
   it('usa code padrão para HttpException do Nest', () => {
     const { body } = catchAndGetBody(new ForbiddenException());
     expect(body).toMatchObject({ statusCode: 403, code: 'ACESSO_NEGADO' });
+  });
+
+  it('traduz o limite de tamanho de upload (413)', () => {
+    const { body } = catchAndGetBody(
+      new PayloadTooLargeException('File too large'),
+    );
+    expect(body).toMatchObject({
+      statusCode: 413,
+      code: 'ARQUIVO_MUITO_GRANDE',
+      message: 'O arquivo enviado excede o tamanho máximo permitido',
+    });
   });
 
   it('preserva a mensagem de HttpException com string', () => {
