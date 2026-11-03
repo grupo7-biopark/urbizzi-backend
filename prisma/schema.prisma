@@ -331,19 +331,24 @@ enum StatusPlanta {
 }
 
 model Planta {
-  id          String       @id @default(uuid()) @db.Uuid
-  nome        String       @db.VarChar(150)
-  versao      Int
-  status      StatusPlanta @default(ENVIADA)
-  larguraPx   Int?         @map("largura_px")
-  alturaPx    Int?         @map("altura_px")
+  id           String       @id @default(uuid()) @db.Uuid
+  nome         String       @db.VarChar(150)
+  versao       Int
+  status       StatusPlanta @default(ENVIADA)
+  larguraPx    Int?         @map("largura_px")
+  alturaPx     Int?         @map("altura_px")
   // Prefixo dos tiles no armazenamento de objetos (Garage/S3)
-  tilesPath   String?      @map("tiles_path") @db.VarChar(255)
-  maxZoom     Int?         @map("max_zoom")
-  ativa       Boolean      @default(false)
-  criadoPorId String       @map("criado_por_id") @db.Uuid
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tilesPath    String?      @map("tiles_path") @db.VarChar(255)
+  maxZoom      Int?         @map("max_zoom")
+  // Grade das fatias enviadas (1 x 1 para imagem única)
+  gradeLinhas  Int          @default(1) @map("grade_linhas")
+  gradeColunas Int          @default(1) @map("grade_colunas")
+  // Chaves dos arquivos originais no bucket plantas-originais, linha a linha
+  originais    String[]     @default([])
+  ativa        Boolean      @default(false)
+  criadoPorId  String       @map("criado_por_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   criadoPor  Usuario    @relation(fields: [criadoPorId], references: [id])
   marcadores Marcador[]

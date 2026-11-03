@@ -98,6 +98,7 @@ Cada módulo tem um `OVERVIEW.md` próprio descrevendo suas regras de negócio, 
 | `application/dto/paginated.dto.ts` | `PaginatedDto<T>` (`{ data, meta }`) |
 | `infra/database/` | `PrismaModule` (global), `PrismaService`, tipo `PrismaTransaction` |
 | `infra/http/filters/all-exceptions.filter.ts` | converte qualquer erro no formato padrão |
+| `infra/http/interceptors/remover-uploads.interceptor.ts` | apaga os uploads gravados em disco ao fim da requisição |
 | `infra/http/swagger/` | `@ApiErrorResponses()` e `@ApiPaginatedResponse()` |
 | `infra/health/` | `GET /health` |
 

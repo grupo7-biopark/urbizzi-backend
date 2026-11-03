@@ -332,6 +332,9 @@ erDiagram
     int altura_px
     varchar tiles_path
     int max_zoom
+    int grade_linhas "1 = imagem única"
+    int grade_colunas
+    text[] originais "chaves no bucket plantas-originais"
     boolean ativa "só uma ativa"
     uuid criado_por_id FK
   }
@@ -359,7 +362,8 @@ Decisões de modelagem em relação ao escopo v2:
 - `HistoricoAuditoria.usuarioId` é opcional, para alterações feitas pelo sistema (expiração automática de reservas).
 - `Lote.valor` é opcional (lote ainda sem preço definido).
 - `Loteamento`, `Quadra`, `Lote` e `Cliente` têm `deletedAt` (soft delete), e as unicidades deles valem só entre os não excluídos.
-- `Planta.versao` é única, e o índice parcial garante uma única planta `ativa`.
+- `Planta.versao` é única, e o índice parcial garante uma única planta `ativa`. A versão é numerada pelo repositório sob um advisory lock da transação, para dois envios simultâneos não disputarem o mesmo número.
+- `Planta.gradeLinhas`, `gradeColunas` e `originais` (BE-30) guardam a grade enviada e as chaves dos arquivos originais no armazenamento, linha a linha, para o processamento juntar as fatias. Os arquivos nunca ficam no Postgres.
 - `TokenRecuperacaoSenha` guarda o hash do token, nunca o token (ver [security.md](security.md#recuperação-de-senha-be-08)).
 - Motivo de bloqueio do lote (RN15) e de cancelamento são registrados no `historico_auditoria` (`motivo`) e, no caso da reserva, também em `motivo_encerramento`.
 
