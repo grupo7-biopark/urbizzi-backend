@@ -1,3 +1,4 @@
+import { LinksPublicosModule } from './modules/links-publicos/links-publicos.module.js';
 import { ClientesModule } from './modules/clientes/clientes.module.js';
 import { ConfiguracoesModule } from './modules/configuracoes/configuracoes.module.js';
 import { StorageModule } from './shared/infra/storage/storage.module.js';
@@ -18,6 +19,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
     StorageModule,
     AuditoriaModule,
     AuthModule,
+    LinksPublicosModule,
     ClientesModule,
     ConfiguracoesModule,
     LoteamentosModule,
