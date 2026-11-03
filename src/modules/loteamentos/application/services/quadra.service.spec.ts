@@ -29,6 +29,7 @@ describe('QuadraService', () => {
     repository = {
       findById: vi.fn(),
       existsByNumero: vi.fn().mockResolvedValue(false),
+      findByLoteamentoIds: vi.fn(),
       hasLotes: vi.fn().mockResolvedValue(false),
       list: vi.fn(),
       create: vi.fn(),

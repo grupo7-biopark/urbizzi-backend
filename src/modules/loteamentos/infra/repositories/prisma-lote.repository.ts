@@ -71,6 +71,19 @@ export class PrismaLoteRepository implements LoteRepository {
     return count > 0;
   }
 
+  async findByQuadraIds(
+    quadraIds: string[],
+    tx?: PrismaTransaction,
+  ): Promise<Lote[]> {
+    if (quadraIds.length === 0) return [];
+    const db = tx ?? this.prisma;
+    const rows = await db.lote.findMany({
+      where: { quadraId: { in: quadraIds }, deletedAt: null },
+      include: INCLUDE_LOTEAMENTO,
+    });
+    return rows.map((row) => this.toEntity(row));
+  }
+
   async list(
     filtros: LoteFiltros,
     pagination: Pagination,
@@ -100,21 +113,13 @@ export class PrismaLoteRepository implements LoteRepository {
 
   async create(lote: Lote, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.lote.create({
-      data: {
-        id: lote.id,
-        quadraId: lote.quadraId,
-        numero: lote.numero,
-        areaM2: lote.areaM2,
-        valor: lote.valor,
-        exibirValorPublico: lote.exibirValorPublico,
-        status: lote.status,
-        observacoes: lote.observacoes,
-        teveReserva: lote.teveReserva,
-        createdAt: lote.createdAt,
-        updatedAt: lote.updatedAt,
-      },
-    });
+    await db.lote.create({ data: this.toData(lote) });
+  }
+
+  async createMany(lotes: Lote[], tx?: PrismaTransaction): Promise<void> {
+    if (lotes.length === 0) return;
+    const db = tx ?? this.prisma;
+    await db.lote.createMany({ data: lotes.map((lote) => this.toData(lote)) });
   }
 
   /** Grava só os campos do cadastro; o status muda pelos fluxos próprios. */
@@ -138,6 +143,22 @@ export class PrismaLoteRepository implements LoteRepository {
       where: { id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  private toData(lote: Lote): Prisma.LoteCreateManyInput {
+    return {
+      id: lote.id,
+      quadraId: lote.quadraId,
+      numero: lote.numero,
+      areaM2: lote.areaM2,
+      valor: lote.valor,
+      exibirValorPublico: lote.exibirValorPublico,
+      status: lote.status,
+      observacoes: lote.observacoes,
+      teveReserva: lote.teveReserva,
+      createdAt: lote.createdAt,
+      updatedAt: lote.updatedAt,
+    };
   }
 
   private toEntity(row: LoteComQuadra): Lote {

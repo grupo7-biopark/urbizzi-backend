@@ -42,6 +42,18 @@ export class PrismaQuadraRepository implements QuadraRepository {
     return count > 0;
   }
 
+  async findByLoteamentoIds(
+    loteamentoIds: string[],
+    tx?: PrismaTransaction,
+  ): Promise<Quadra[]> {
+    if (loteamentoIds.length === 0) return [];
+    const db = tx ?? this.prisma;
+    const rows = await db.quadra.findMany({
+      where: { loteamentoId: { in: loteamentoIds }, deletedAt: null },
+    });
+    return rows.map((row) => this.toEntity(row));
+  }
+
   async hasLotes(id: string, tx?: PrismaTransaction): Promise<boolean> {
     const db = tx ?? this.prisma;
     const count = await db.lote.count({

@@ -153,6 +153,7 @@ Regras:
 
 - Validação de toda entrada com DTO (`whitelist` + `forbidNonWhitelisted` já estão globais).
 - Upload de arquivos (BE-30): limite de tamanho, lista de tipos MIME permitidos e nome do objeto gerado pelo servidor (nunca o nome enviado pelo usuário).
+- Upload só para leitura (importação de lotes, BE-17): o arquivo fica em memória (limite de 5 MB e um arquivo no `FileInterceptor`) e não é armazenado. O nome enviado serve apenas para identificar o formato pela extensão.
 - SQL cru só com `$queryRaw` usando template tag (parâmetros escapados); `$queryRawUnsafe`/`$executeRawUnsafe` só com strings fixas, nunca com entrada do usuário.
 - Dependências: não adicione pacotes sem manutenção; rode `npm audit` ao atualizar.
 

@@ -42,6 +42,14 @@ const DEFAULT_HTTP_CODES: Partial<Record<HttpStatus, string>> = {
   [HttpStatus.CONFLICT]: 'CONFLITO',
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'REGRA_DE_NEGOCIO_VIOLADA',
   [HttpStatus.TOO_MANY_REQUESTS]: 'MUITAS_REQUISICOES',
+  [HttpStatus.PAYLOAD_TOO_LARGE]: 'ARQUIVO_MUITO_GRANDE',
+};
+
+// Mensagens em português para exceções que o Nest gera em inglês (ex.: o
+// limite de tamanho do upload, "File too large")
+const DEFAULT_HTTP_MESSAGES: Partial<Record<HttpStatus, string>> = {
+  [HttpStatus.PAYLOAD_TOO_LARGE]:
+    'O arquivo enviado excede o tamanho máximo permitido',
 };
 
 /**
@@ -117,6 +125,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = exception.getResponse();
     const fallbackCode =
       DEFAULT_HTTP_CODES[statusCode as HttpStatus] ?? 'ERRO_HTTP';
+    const defaultMessage = DEFAULT_HTTP_MESSAGES[statusCode as HttpStatus];
+    if (defaultMessage) {
+      return { statusCode, code: fallbackCode, message: defaultMessage };
+    }
 
     if (typeof response === 'string') {
       return { statusCode, code: fallbackCode, message: response };

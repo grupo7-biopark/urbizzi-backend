@@ -33,6 +33,8 @@ describe('LoteService', () => {
       alterarStatus: vi.fn(),
       findById: vi.fn(),
       existsByNumero: vi.fn().mockResolvedValue(false),
+      findByQuadraIds: vi.fn(),
+      createMany: vi.fn(),
       list: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),

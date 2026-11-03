@@ -27,6 +27,7 @@ describe('LoteamentoService', () => {
     repository = {
       findById: vi.fn(),
       existsByNome: vi.fn().mockResolvedValue(false),
+      findByNomes: vi.fn(),
       hasQuadras: vi.fn().mockResolvedValue(false),
       list: vi.fn(),
       create: vi.fn(),

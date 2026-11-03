@@ -20,4 +20,14 @@ export class AuditoriaService {
   ): Promise<void> {
     await this.repository.create(HistoricoAuditoria.create(input), tx);
   }
+  /** Registra várias alterações em uma única inserção (ex.: importação em lote). */
+  async registrarVarios(
+    inputs: RegistrarAuditoriaInput[],
+    tx?: PrismaTransaction,
+  ): Promise<void> {
+    await this.repository.createMany(
+      inputs.map((input) => HistoricoAuditoria.create(input)),
+      tx,
+    );
+  }
 }
