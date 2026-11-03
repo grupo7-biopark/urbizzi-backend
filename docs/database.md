@@ -284,6 +284,7 @@ erDiagram
     boolean exibir_valor_publico
     status_lote status "DISPONIVEL, RESERVADO, VENDIDO, BLOQUEADO"
     text observacoes
+    boolean teve_reserva "impede a exclusão"
   }
   clientes {
     uuid id PK
@@ -359,6 +360,7 @@ Decisões de modelagem em relação ao escopo v2:
 - `Configuracao` tem `id` uuid além de `chave` única, seguindo a regra de chave uuid em todas as tabelas.
 - `HistoricoAuditoria.usuarioId` é opcional, para alterações feitas pelo sistema (expiração automática de reservas).
 - `Lote.valor` é opcional (lote ainda sem preço definido).
+- `Lote.teveReserva` (BE-16) registra que o lote já foi reservado, para impedir a exclusão sem que o módulo `loteamentos` leia a tabela `reservas`, que pertence a outro módulo. É marcado pelo fluxo de reserva (BE-19) e nunca volta a `false`.
 - `Loteamento`, `Quadra`, `Lote` e `Cliente` têm `deletedAt` (soft delete), e as unicidades deles valem só entre os não excluídos.
 - `Planta.versao` é única, e o índice parcial garante uma única planta `ativa`.
 - `TokenRecuperacaoSenha` guarda o hash do token, nunca o token (ver [security.md](security.md#recuperação-de-senha-be-08)).
