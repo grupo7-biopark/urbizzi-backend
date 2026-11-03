@@ -1,3 +1,4 @@
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import {
@@ -21,18 +22,42 @@ export class UsuarioService {
   async autenticar(
     email: string,
     senha: string,
+    tx?: PrismaTransaction,
   ): Promise<UsuarioAutenticado | null> {
-    const usuario = await this.repository.findByEmail(
-      email.trim().toLowerCase(),
-    );
+    const emailNormalizado = email.trim().toLowerCase();
+    if (tx)
+      await this.repository.bloquearAutenticacaoPorEmail(emailNormalizado, tx);
+    const usuario = await this.repository.findByEmail(emailNormalizado, tx);
     const valido = await this.hasher.verify(
       usuario?.senhaHash ?? (await this.dummyHash),
       senha,
     );
     return usuario?.ativo && valido ? usuario.dados : null;
   }
-  async findAtivoById(id: string): Promise<UsuarioAutenticado | null> {
-    const usuario = await this.repository.findById(id);
+  async findAtivoByEmail(email: string): Promise<UsuarioAutenticado | null> {
+    const usuario = await this.repository.findByEmail(
+      email.trim().toLowerCase(),
+    );
+    return usuario?.ativo ? usuario.dados : null;
+  }
+  gerarSenhaHash(senha: string): Promise<string> {
+    return this.hasher.hash(senha);
+  }
+  redefinirSenha(
+    id: string,
+    senhaHash: string,
+    tx: PrismaTransaction,
+  ): Promise<boolean> {
+    return this.repository.redefinirSenha(id, senhaHash, tx);
+  }
+  bloquearAutenticacao(id: string, tx: PrismaTransaction): Promise<void> {
+    return this.repository.bloquearAutenticacao(id, tx);
+  }
+  async findAtivoById(
+    id: string,
+    tx?: PrismaTransaction,
+  ): Promise<UsuarioAutenticado | null> {
+    const usuario = await this.repository.findById(id, tx);
     return usuario?.ativo ? usuario.dados : null;
   }
 }

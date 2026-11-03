@@ -1,3 +1,4 @@
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../shared/infra/database/prisma.service.js';
 import { Usuario } from '../../domain/models/usuario.entity.js';
@@ -5,16 +6,40 @@ import type { UsuarioRepository } from '../../domain/repositories/usuario.reposi
 @Injectable()
 export class PrismaUsuarioRepository implements UsuarioRepository {
   constructor(private readonly prisma: PrismaService) {}
-  async findById(id: string): Promise<Usuario | null> {
-    return this.find({ id });
+  async redefinirSenha(
+    id: string,
+    senhaHash: string,
+    tx: PrismaTransaction,
+  ): Promise<boolean> {
+    const { count } = await tx.usuario.updateMany({
+      where: { id, ativo: true },
+      data: { senhaHash },
+    });
+    return count === 1;
   }
-  async findByEmail(email: string): Promise<Usuario | null> {
-    return this.find({ email });
+  async bloquearAutenticacao(id: string, tx: PrismaTransaction): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM usuarios WHERE id = ${id}::uuid FOR UPDATE`;
+  }
+  async bloquearAutenticacaoPorEmail(
+    email: string,
+    tx: PrismaTransaction,
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM usuarios WHERE email = ${email} FOR UPDATE`;
+  }
+  async findById(id: string, tx?: PrismaTransaction): Promise<Usuario | null> {
+    return this.find({ id }, tx);
+  }
+  async findByEmail(
+    email: string,
+    tx?: PrismaTransaction,
+  ): Promise<Usuario | null> {
+    return this.find({ email }, tx);
   }
   private async find(
     where: { id: string } | { email: string },
+    tx?: PrismaTransaction,
   ): Promise<Usuario | null> {
-    const row = await this.prisma.usuario.findUnique({
+    const row = await (tx ?? this.prisma).usuario.findUnique({
       where,
       include: { perfil: true },
     });

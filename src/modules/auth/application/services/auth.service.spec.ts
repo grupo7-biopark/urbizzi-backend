@@ -1,3 +1,5 @@
+import type { TransactionManager } from '../../../../shared/infra/database/transaction.manager.js';
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { AuthService } from './auth.service.js';
 import type { UsuarioService } from '../../../usuarios/application/services/usuario.service.js';
 import { Sessao } from '../../domain/models/sessao.entity.js';
@@ -8,7 +10,15 @@ describe('AuthService', () => {
     email: 'teste@exemplo.com',
     perfil: 'COMERCIAL' as const,
   };
-  const usuarios = { autenticar: vi.fn(), findAtivoById: vi.fn() };
+  const usuarios = {
+    autenticar: vi.fn(),
+    findAtivoById: vi.fn(),
+    bloquearAutenticacao: vi.fn(),
+  };
+  const tx = {} as PrismaTransaction;
+  const transactions = {
+    run: (fn: (tx: PrismaTransaction) => Promise<unknown>) => fn(tx),
+  } as TransactionManager;
   const sessoes = {
     create: vi.fn(),
     findValida: vi.fn(),
@@ -33,6 +43,7 @@ describe('AuthService', () => {
       usuarios as unknown as UsuarioService,
       sessoes,
       tokens,
+      transactions,
     );
   });
   it('inicia sessão e retorna tokens', async () => {
@@ -64,6 +75,7 @@ describe('AuthService', () => {
     expect(sessoes.rotate).toHaveBeenCalledWith(
       Sessao.hashToken('antigo'),
       expect.any(Sessao),
+      tx,
     );
   });
   it.each(['ausente', 'inativo', 'concorrente'])(

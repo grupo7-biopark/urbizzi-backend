@@ -123,6 +123,7 @@ Restrições atuais:
 | Tabela | Restrição | Tipo | Regra |
 | --- | --- | --- | --- |
 | `usuarios` | `usuarios_email_key` | unique | e-mail único |
+| `loteamentos` | `loteamentos_nome_key` | unique parcial (`deleted_at IS NULL`) | nome único (BE-14); a comparação sem diferenciar maiúsculas fica no service |
 | `quadras` | `quadras_loteamento_id_numero_key` | unique parcial (`deleted_at IS NULL`) | número da quadra único por loteamento |
 | `lotes` | `lotes_quadra_id_numero_key` | unique parcial (`deleted_at IS NULL`) | RN21 |
 | `lotes` | `lotes_area_m2_check`, `lotes_valor_check` | check | área > 0, valor ≥ 0 |
@@ -265,7 +266,7 @@ erDiagram
   }
   loteamentos {
     uuid id PK
-    varchar nome
+    varchar nome "único entre os não excluídos"
     text descricao
     varchar localizacao
   }
@@ -283,6 +284,7 @@ erDiagram
     boolean exibir_valor_publico
     status_lote status "DISPONIVEL, RESERVADO, VENDIDO, BLOQUEADO"
     text observacoes
+    boolean teve_reserva "impede a exclusão"
   }
   clientes {
     uuid id PK
@@ -361,6 +363,7 @@ Decisões de modelagem em relação ao escopo v2:
 - `Configuracao` tem `id` uuid além de `chave` única, seguindo a regra de chave uuid em todas as tabelas.
 - `HistoricoAuditoria.usuarioId` é opcional, para alterações feitas pelo sistema (expiração automática de reservas).
 - `Lote.valor` é opcional (lote ainda sem preço definido).
+- `Lote.teveReserva` (BE-16) registra que o lote já foi reservado, para impedir a exclusão sem que o módulo `loteamentos` leia a tabela `reservas`, que pertence a outro módulo. É marcado pelo fluxo de reserva (BE-19) e nunca volta a `false`.
 - `Loteamento`, `Quadra`, `Lote` e `Cliente` têm `deletedAt` (soft delete), e as unicidades deles valem só entre os não excluídos.
 - `Planta.versao` é única, e o índice parcial garante uma única planta `ativa`. A versão é numerada pelo repositório sob um advisory lock da transação, para dois envios simultâneos não disputarem o mesmo número.
 - `Planta.gradeLinhas`, `gradeColunas` e `originais` (BE-30) guardam a grade enviada e as chaves dos arquivos originais no armazenamento, linha a linha, para o processamento juntar as fatias. Os arquivos nunca ficam no Postgres.
@@ -370,3 +373,7 @@ Decisões de modelagem em relação ao escopo v2:
 ### Sessões de autenticação (BE-07)
 
 A tabela `sessoes`, pertencente ao módulo `auth`, guarda apenas hash SHA-256 do refresh token, usuário, validade e revogação. O consumo do refresh usa `updateMany` condicionado a token não revogado e ainda válido, seguido de inserção da nova sessão na mesma transação. Concorrência resulta em somente uma renovação. Índices por usuário e expiração permitem consultas e futura limpeza de sessões vencidas; não há rotina de limpeza automática nesta issue.
+
+### Busca de clientes (BE-18)
+
+A migration enable_unaccent habilita a extensão PostgreSQL unaccent para busca textual sem distinguir acentos. Não modifica os nomes armazenados. A consulta usa parâmetros, soft delete e leitura repetível para manter página/total coerentes. O índice parcial existente continua garantindo documento único para clientes não excluídos, inclusive sob concorrência.
