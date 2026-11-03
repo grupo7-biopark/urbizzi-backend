@@ -138,6 +138,7 @@ Códigos genéricos gerados automaticamente pelo filtro:
 | `ACESSO_NEGADO` | 403 | perfil sem permissão (`PerfisGuard`) |
 | `RECURSO_NAO_ENCONTRADO` | 404 | rota inexistente, ou Prisma `P2025` |
 | `REGISTRO_DUPLICADO` | 409 | Prisma `P2002` (violação de unique, inclusive concorrência) |
+| `ARQUIVO_MUITO_GRANDE` | 413 | upload acima do limite do `FileInterceptor` |
 | `ERRO_INTERNO` | 500 | qualquer erro não tratado |
 
 ## Códigos HTTP

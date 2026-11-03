@@ -11,6 +11,8 @@ const DESCRIPTIONS: Partial<Record<HttpStatus, string>> = {
   [HttpStatus.NOT_FOUND]: 'Recurso não encontrado',
   [HttpStatus.CONFLICT]: 'Conflito com o estado atual do recurso',
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'Regra de negócio violada',
+  [HttpStatus.PAYLOAD_TOO_LARGE]:
+    'Arquivo maior que o permitido (code ARQUIVO_MUITO_GRANDE)',
 };
 
 /**
