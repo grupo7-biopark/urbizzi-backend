@@ -1,3 +1,4 @@
+import { LinksPublicosModule } from './modules/links-publicos/links-publicos.module.js';
 import { StorageModule } from './shared/infra/storage/storage.module.js';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -16,6 +17,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
     StorageModule,
     AuditoriaModule,
     AuthModule,
+    LinksPublicosModule,
     LoteamentosModule,
     // Módulos de domínio (src/modules/<modulo>/<modulo>.module.ts) entram aqui.
   ],
