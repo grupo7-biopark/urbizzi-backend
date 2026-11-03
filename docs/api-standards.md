@@ -71,7 +71,7 @@ Todas as respostas de erro têm o mesmo formato, gerado pelo `AllExceptionsFilte
 | `statusCode` | number | status HTTP |
 | `code` | string | código estável em `UPPER_SNAKE_CASE`, para o front-end tratar |
 | `message` | string | mensagem legível em português, pode ser exibida ao usuário |
-| `details` | array, opcional | só em `DADOS_INVALIDOS`: `{ field, messages[] }` por campo |
+| `details` | array, opcional | em `DADOS_INVALIDOS` e em alguns `InvalidInputError`: `{ field, messages[] }` por campo |
 | `path` | string | rota chamada |
 | `timestamp` | string | data e hora ISO 8601 |
 
@@ -120,6 +120,7 @@ Erro inesperado (detalhes só no log do servidor, nunca na resposta):
 Nas camadas `domain` e `application`, lance as classes de `src/shared/domain/errors/domain.error.ts`, sempre com `code` específico e mensagem em português:
 
 ```ts
+throw new InvalidInputError('PLANTA_GRADE_INCOMPLETA', 'Faltam fatias da planta', [{ field: 'arquivos', messages: ['fatia_01_02'] }]);
 throw new NotFoundError('LOTE_NAO_ENCONTRADO', 'Lote não encontrado');
 throw new ConflictError('LOTE_INDISPONIVEL', 'O lote não está disponível para reserva');
 throw new BusinessRuleError('RESERVA_NAO_RENOVAVEL', 'Só é possível renovar reservas ativas');
@@ -148,7 +149,7 @@ Códigos genéricos gerados automaticamente pelo filtro:
 | 200 | leitura, atualização ou ação bem-sucedida | — |
 | 201 | recurso criado (`POST` de criação) | — |
 | 204 | exclusão bem-sucedida, sem corpo | `@HttpCode(HttpStatus.NO_CONTENT)` |
-| 400 | entrada malformada ou inválida (tipo, formato, campo obrigatório) | automático (`ValidationPipe`) |
+| 400 | entrada malformada ou inválida (tipo, formato, campo obrigatório) | automático (`ValidationPipe`); `InvalidInputError` quando só o service consegue validar (ex.: conteúdo de arquivo) |
 | 401 | sem autenticação | automático (guard) |
 | 403 | autenticado, mas sem permissão para a ação ou para **aquele** recurso | `ForbiddenError` / guard |
 | 404 | recurso não existe (ou foi excluído) | `NotFoundError` |

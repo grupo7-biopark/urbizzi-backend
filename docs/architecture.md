@@ -29,7 +29,7 @@ src/
     └── infra/
         ├── database/           # PrismaModule, PrismaService, TransactionManager, PrismaTransaction
         ├── health/             # GET /health
-        └── http/               # filtro de erros, factory de validação, decorators de Swagger
+        └── http/               # filtro de erros, factory de validação, decorators de Swagger, interceptors de upload
 test/                           # testes e2e (test/<modulo>/*.e2e-spec.ts) e factories
 prisma/                         # schema.prisma e migrations
 docs/                           # esta documentação

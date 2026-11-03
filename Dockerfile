@@ -30,6 +30,9 @@ FROM base AS production
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --omit=optional --ignore-scripts && npm cache clean --force
+# O sharp traz o binário da libvips em dependências opcionais (@img/*), que o
+# --omit=optional remove; elas vêm do estágio build, que tem a mesma plataforma.
+COPY --from=build /usr/src/app/node_modules/@img ./node_modules/@img
 COPY --from=build /usr/src/app/dist ./dist
 USER node
 EXPOSE 3000
