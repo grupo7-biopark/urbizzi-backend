@@ -17,6 +17,10 @@ export interface QuadraRepository {
     numero: string,
     ignoreId?: string,
   ): Promise<boolean>;
+  findByLoteamentoIds(
+    loteamentoIds: string[],
+    tx?: PrismaTransaction,
+  ): Promise<Quadra[]>;
   /** Indica se a quadra tem lotes não excluídos. */
   hasLotes(id: string, tx?: PrismaTransaction): Promise<boolean>;
   list(filtros: QuadraFiltros, pagination: Pagination): Promise<Page<Quadra>>;

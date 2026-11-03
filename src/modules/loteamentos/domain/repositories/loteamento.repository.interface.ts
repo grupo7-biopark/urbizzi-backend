@@ -12,6 +12,8 @@ export interface LoteamentoRepository {
   findById(id: string, tx?: PrismaTransaction): Promise<Loteamento | null>;
   /** Compara o nome sem diferenciar maiúsculas. */
   existsByNome(nome: string, ignoreId?: string): Promise<boolean>;
+  /** Busca pelos nomes sem diferenciar maiúsculas. */
+  findByNomes(nomes: string[], tx?: PrismaTransaction): Promise<Loteamento[]>;
   /** Indica se o loteamento tem quadras não excluídas. */
   hasQuadras(id: string, tx?: PrismaTransaction): Promise<boolean>;
   list(

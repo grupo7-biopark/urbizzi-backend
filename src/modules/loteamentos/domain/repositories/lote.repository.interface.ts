@@ -21,8 +21,10 @@ export interface LoteRepository {
     numero: string,
     ignoreId?: string,
   ): Promise<boolean>;
+  findByQuadraIds(quadraIds: string[], tx?: PrismaTransaction): Promise<Lote[]>;
   list(filtros: LoteFiltros, pagination: Pagination): Promise<Page<Lote>>;
   create(lote: Lote, tx?: PrismaTransaction): Promise<void>;
+  createMany(lotes: Lote[], tx?: PrismaTransaction): Promise<void>;
   update(lote: Lote, tx?: PrismaTransaction): Promise<void>;
   delete(id: string, tx?: PrismaTransaction): Promise<void>;
 }

@@ -42,6 +42,18 @@ export class PrismaLoteamentoRepository implements LoteamentoRepository {
     return count > 0;
   }
 
+  async findByNomes(
+    nomes: string[],
+    tx?: PrismaTransaction,
+  ): Promise<Loteamento[]> {
+    if (nomes.length === 0) return [];
+    const db = tx ?? this.prisma;
+    const rows = await db.loteamento.findMany({
+      where: { nome: { in: nomes, mode: 'insensitive' }, deletedAt: null },
+    });
+    return rows.map((row) => this.toEntity(row));
+  }
+
   async hasQuadras(id: string, tx?: PrismaTransaction): Promise<boolean> {
     const db = tx ?? this.prisma;
     const count = await db.quadra.count({
