@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictError } from '../../../../shared/domain/errors/domain.error.js';
+import {
+  ConflictError,
+  BusinessRuleError,
+} from '../../../../shared/domain/errors/domain.error.js';
 
 export type StatusLote = 'DISPONIVEL' | 'RESERVADO' | 'VENDIDO' | 'BLOQUEADO';
 
@@ -150,6 +153,29 @@ export class Lote {
       }),
       updatedAt: new Date(),
     };
+  }
+
+  bloquear(motivo: string): void {
+    if (!motivo.trim())
+      throw new BusinessRuleError(
+        'MOTIVO_OBRIGATORIO',
+        'Informe o motivo do bloqueio',
+      );
+    if (this.props.status !== 'DISPONIVEL')
+      throw new ConflictError(
+        'LOTE_NAO_DISPONIVEL',
+        'Só é possível bloquear um lote disponível',
+      );
+    this.props = { ...this.props, status: 'BLOQUEADO', updatedAt: new Date() };
+  }
+
+  desbloquear(): void {
+    if (this.props.status !== 'BLOQUEADO')
+      throw new ConflictError(
+        'LOTE_NAO_BLOQUEADO',
+        'Só é possível desbloquear um lote bloqueado',
+      );
+    this.props = { ...this.props, status: 'DISPONIVEL', updatedAt: new Date() };
   }
 
   /** Só lote DISPONIVEL e que nunca foi reservado pode ser excluído. */

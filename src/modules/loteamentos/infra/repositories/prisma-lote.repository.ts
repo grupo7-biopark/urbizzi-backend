@@ -1,3 +1,5 @@
+import { ConflictError } from '../../../../shared/domain/errors/domain.error.js';
+import type { StatusLote } from '../../domain/models/lote.entity.js';
 import { Injectable } from '@nestjs/common';
 import type {
   Lote as LoteRecord,
@@ -26,6 +28,23 @@ type LoteComQuadra = LoteRecord & { quadra: { loteamentoId: string } };
 @Injectable()
 export class PrismaLoteRepository implements LoteRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async alterarStatus(
+    id: string,
+    esperado: StatusLote,
+    novo: StatusLote,
+    tx: PrismaTransaction,
+  ): Promise<void> {
+    const result = await tx.lote.updateMany({
+      where: { id, status: esperado, deletedAt: null },
+      data: { status: novo },
+    });
+    if (result.count !== 1)
+      throw new ConflictError(
+        'LOTE_STATUS_ALTERADO',
+        'O status do lote foi alterado por outra operação',
+      );
+  }
 
   async findById(id: string, tx?: PrismaTransaction): Promise<Lote | null> {
     const db = tx ?? this.prisma;

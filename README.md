@@ -55,6 +55,13 @@ Error: Variáveis de ambiente inválidas:
 | `S3_URL_EXPIRES_IN` | não | `900` | Validade das URLs em segundos (até 604800) |
 | `GARAGE_RPC_SECRET` | compose | fictício local | Segredo RPC hexadecimal de 32 bytes |
 | `GARAGE_S3_PORT` | não | `3900` | Porta S3 do Garage no host |
+| `SMTP_HOST` | não | `localhost` | Servidor SMTP (`mailpit` dentro do compose) |
+| `SMTP_PORT` | não | `1025` | Porta SMTP |
+| `SMTP_SECURE` | não | `false` | TLS implícito, string true/false |
+| `SMTP_USER` | não | - | Usuário do provedor SMTP |
+| `SMTP_PASSWORD` | não | - | Senha do provedor SMTP |
+| `SMTP_FROM` | não | `nao-responda@urbizzi.local` | Remetente de recuperação |
+| `PASSWORD_RESET_URL` | não | `http://localhost:5173/reset-password` | Página do frontend que recebe o token |
 | `JWT_SECRET` | sim | - | Segredo HS256 com no mínimo 32 caracteres |
 | `JWT_EXPIRES_IN` | não | `900` | Validade do access token em segundos (60 a 3600) |
 | `REFRESH_TOKEN_EXPIRES_IN` | não | `604800` | Validade do refresh em segundos (3600 a 2592000) |
@@ -74,7 +81,7 @@ Error: Variáveis de ambiente inválidas:
 
 ```bash
 npm install                 # também roda `prisma generate`
-docker compose up -d garage postgres
+docker compose up -d garage postgres mailpit
 npm run start:dev
 ```
 
@@ -140,3 +147,13 @@ docs/                arquitetura e padrões
 ```
 
 > Alterou `package.json`, `nest-cli.json`, moveu/renomeou arquivos em `src/` ou o hot reload parou de refletir mudanças? Reconstrua o container: `docker compose up -d --build api`.
+
+## Testar recuperação de senha (BE-08)
+
+1. Copie `.env.example` para `.env` e execute `docker compose up --build`.
+2. Com um usuário ativo cadastrado, envie `POST http://localhost:3000/v1/auth/forgot-password` com `{ "email": "usuario@exemplo.com" }`. A resposta é sempre 202 sem corpo para e-mails válidos.
+3. Abra [Mailpit](http://localhost:8025), veja a mensagem e copie o parâmetro `token` do link. O frontend de redefinição é uma entrega separada.
+4. Envie `POST http://localhost:3000/v1/auth/reset-password` com `{ "token": "<token recebido>", "senha": "NovaSenha123!" }`; espere 204.
+5. Faça login com a nova senha. A senha anterior, os refresh tokens anteriores e todos os links de recuperação anteriores devem ser rejeitados.
+
+Os testes `test/auth/recuperacao-senha.e2e-spec.ts` usam Postgres real e substituem apenas o envio de e-mail por uma captura em memória. O teste `test/auth/mailpit.e2e-spec.ts` valida SMTP real quando `MAILPIT_E2E=true`; o CI sobe Mailpit e habilita essa verificação.

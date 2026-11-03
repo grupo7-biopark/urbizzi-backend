@@ -40,6 +40,13 @@ services:
       retries: 20
       start_period: 5s
 
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+
   api:
     build:
       context: .
@@ -50,6 +57,9 @@ services:
         required: false
     environment:
       JWT_SECRET: ${JWT_SECRET:-}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: 'false'
       NODE_ENV: development
       # Polling: eventos de arquivo não atravessam bind mounts no Docker Desktop (Windows/macOS)
       TSC_WATCHFILE: DynamicPriorityPolling
@@ -72,6 +82,8 @@ services:
       - ./test:/usr/src/app/test
       - ./prisma:/usr/src/app/prisma
     depends_on:
+      mailpit:
+        condition: service_started
       garage:
         condition: service_healthy
       postgres:

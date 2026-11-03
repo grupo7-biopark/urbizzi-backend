@@ -1,3 +1,6 @@
+import { LinksPublicosModule } from './modules/links-publicos/links-publicos.module.js';
+import { ClientesModule } from './modules/clientes/clientes.module.js';
+import { ConfiguracoesModule } from './modules/configuracoes/configuracoes.module.js';
 import { StorageModule } from './shared/infra/storage/storage.module.js';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -16,6 +19,9 @@ import { HealthModule } from './shared/infra/health/health.module.js';
     StorageModule,
     AuditoriaModule,
     AuthModule,
+    LinksPublicosModule,
+    ClientesModule,
+    ConfiguracoesModule,
     LoteamentosModule,
     // Módulos de domínio (src/modules/<modulo>/<modulo>.module.ts) entram aqui.
   ],
