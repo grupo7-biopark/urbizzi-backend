@@ -30,4 +30,23 @@ export class SharpProcessadorImagem implements ProcessadorImagem {
       return null;
     }
   }
+
+  async gerarTiles(
+    arquivos: string[],
+    colunas: number,
+    destino: string,
+    tamanhoTile: number,
+  ): Promise<{ largura: number; altura: number }> {
+    // Leitura sequencial (padrão): o libvips decodifica em faixas e junta as
+    // fatias sem montar a imagem completa na memória.
+    const imagem =
+      arquivos.length === 1
+        ? sharp(arquivos[0])
+        : sharp(arquivos, { join: { across: colunas } });
+    const info = await imagem
+      .webp({ quality: 85 })
+      .tile({ size: tamanhoTile, layout: 'google', skipBlanks: -1 })
+      .toFile(destino);
+    return { largura: info.width, altura: info.height };
+  }
 }

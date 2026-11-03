@@ -23,6 +23,16 @@ export const envSchema = z.object({
   S3_BUCKET_ORIGINAIS: bucket.default('plantas-originais'),
   S3_BUCKET_TILES: bucket.default('plantas-tiles'),
   S3_URL_EXPIRES_IN: z.coerce.number().int().min(1).max(604800).default(900),
+  PLANTAS_PROCESSAMENTO_ATIVO: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  PLANTAS_FILA_INTERVALO_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(3600000)
+    .default(5000),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.coerce.number().int().min(60).max(3600).default(900),
   REFRESH_TOKEN_EXPIRES_IN: z.coerce

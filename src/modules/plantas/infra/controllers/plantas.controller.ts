@@ -4,6 +4,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -91,6 +93,18 @@ export class PlantasController {
   @ApiErrorResponses(400, 401)
   list(@Query() query: ListPlantasQueryDto): Promise<PaginatedDto<PlantaDto>> {
     return this.plantaService.list(query);
+  }
+
+  /** Devolve uma planta com ERRO para a fila de processamento */
+  @Post(':id/reprocessar')
+  @HttpCode(HttpStatus.OK)
+  @Perfis('ADMINISTRADOR', 'GESTOR')
+  @ApiErrorResponses(400, 401, 403, 404, 409)
+  reprocessar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() usuario: UsuarioAutenticado,
+  ): Promise<PlantaDto> {
+    return this.plantaService.reprocessar(id, usuario);
   }
 
   /** Detalha uma planta, com o status do processamento */

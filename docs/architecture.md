@@ -63,6 +63,18 @@ Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09
 
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
 
+## Trabalho em segundo plano
+
+Tarefas demoradas não rodam dentro da requisição. A primeira é o processamento da planta em tiles (BE-31), e a fila dela é a própria tabela `plantas`, sem Redis nem outro serviço:
+
+- A requisição grava a planta como `ENVIADA` e responde.
+- O worker (`infra/workers/plantas.worker.ts`), que roda no próprio processo da API, consulta a fila a cada `PLANTAS_FILA_INTERVALO_MS`.
+- Cada planta é retirada da fila com `UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED)`. Assim, várias instâncias da API podem rodar o worker sem processar a mesma planta duas vezes.
+- O caso de uso fica no service (`ProcessamentoPlantaService`). O worker é só o agendador: chama o service e registra o resultado no log.
+- Para desligar o worker numa instância, use `PLANTAS_PROCESSAMENTO_ATIVO=false`. Nos e2e ele já fica desligado (`vitest.config.e2e.ts`), e os testes processam a fila chamando o service.
+
+A fila no Postgres foi escolhida por não exigir infraestrutura nova, pelo volume baixo (algumas plantas por ano) e por ter o status no mesmo registro que a API consulta. Reavalie com BullMQ/Redis se surgirem filas de alto volume.
+
 ## Cálculo de dias úteis
 
 `shared/domain/dias-uteis.ts` (BE-12) fornece `adicionarDiasUteis` e `diasUteisEntre`, com calendário de São Paulo, feriados fixos/móveis e feriados locais adicionais. Services podem importar essas funções puras diretamente. Contrato, convenções de intervalo e exemplos em [dias-uteis.md](dias-uteis.md).
@@ -83,7 +95,8 @@ src/modules/<modulo>/
 │   └── services/<entidade>.service.ts       # casos de uso
 └── infra/
     ├── controllers/<recurso>.controller.ts  # rotas HTTP
-    └── repositories/prisma-<entidade>.repository.ts       # implementação do contrato com Prisma
+    ├── repositories/prisma-<entidade>.repository.ts       # implementação do contrato com Prisma
+    └── workers/<nome>.worker.ts             # (opcional) trabalho em segundo plano, ex.: fila de plantas
 ```
 
 Um módulo com várias entidades (ex.: `loteamentos` com `Loteamento`, `Quadra` e `Lote`) tem um arquivo de cada tipo por entidade, todos nas mesmas pastas. Não crie submódulos.

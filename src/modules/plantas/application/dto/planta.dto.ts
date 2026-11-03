@@ -45,6 +45,16 @@ export class PlantaDto {
    * @example 6
    */
   maxZoom: number | null;
+  /**
+   * Tamanho do tile em pixels, preenchido após o processamento
+   * @example 256
+   */
+  tamanhoTile: number | null;
+  /**
+   * Motivo da falha quando o status é ERRO
+   * @example null
+   */
+  mensagemErro: string | null;
   /** @example '9c4d2e1f-8a52-4a8e-9d3f-2c7f1e5a9b10' */
   criadoPorId: string;
   createdAt: Date;
@@ -62,6 +72,8 @@ export class PlantaDto {
     dto.larguraPx = planta.larguraPx;
     dto.alturaPx = planta.alturaPx;
     dto.maxZoom = planta.maxZoom;
+    dto.tamanhoTile = planta.tamanhoTile;
+    dto.mensagemErro = planta.mensagemErro;
     dto.criadoPorId = planta.criadoPorId;
     dto.createdAt = planta.createdAt;
     dto.updatedAt = planta.updatedAt;

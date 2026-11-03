@@ -17,4 +17,19 @@ export interface PlantaRepository {
    */
   proximaVersao(tx: PrismaTransaction): Promise<number>;
   create(planta: Planta, tx?: PrismaTransaction): Promise<void>;
+  update(planta: Planta, tx?: PrismaTransaction): Promise<void>;
+  /**
+   * Retira da fila a planta ENVIADA mais antiga e a marca como PROCESSANDO
+   * numa única operação atômica (`FOR UPDATE SKIP LOCKED`), para duas
+   * instâncias da API nunca processarem a mesma planta.
+   */
+  reservarProxima(): Promise<Planta | null>;
+  /**
+   * Marca como ERRO as plantas PROCESSANDO desde antes de `iniciadasAntesDe`
+   * (processo encerrado no meio do trabalho). Devolve quantas marcou.
+   */
+  marcarInterrompidas(
+    iniciadasAntesDe: Date,
+    mensagem: string,
+  ): Promise<number>;
 }
