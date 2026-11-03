@@ -11,6 +11,7 @@ import {
   BusinessRuleError,
   ConflictError,
   ForbiddenError,
+  InvalidInputError,
   NotFoundError,
 } from '../../../domain/errors/domain.error.js';
 import { validationExceptionFactory } from '../validation-exception.factory.js';
@@ -47,6 +48,7 @@ describe('AllExceptionsFilter', () => {
     [new ConflictError('LOTE_INDISPONIVEL', 'Lote indisponível'), 409],
     [new BusinessRuleError('RESERVA_EXPIRADA', 'Reserva expirada'), 422],
     [new ForbiddenError('RESERVA_DE_OUTRO_VENDEDOR', 'Sem permissão'), 403],
+    [new InvalidInputError('IMAGEM_INVALIDA', 'Imagem inválida'), 400],
   ])('mapeia %s para HTTP %i mantendo code e message', (error, status) => {
     const { body, status: replied } = catchAndGetBody(error);
 
@@ -57,6 +59,22 @@ describe('AllExceptionsFilter', () => {
       message: error.message,
       path: '/v1/lotes/1',
       timestamp: expect.any(String),
+    });
+  });
+
+  it('repassa os detalhes de InvalidInputError', () => {
+    const details = [{ field: 'arquivos', messages: ['fatia_01_02'] }];
+    const { body } = catchAndGetBody(
+      new InvalidInputError(
+        'PLANTA_GRADE_INCOMPLETA',
+        'Faltam fatias',
+        details,
+      ),
+    );
+    expect(body).toMatchObject({
+      statusCode: 400,
+      code: 'PLANTA_GRADE_INCOMPLETA',
+      details,
     });
   });
 

@@ -61,7 +61,7 @@ Cada módulo tem um `OVERVIEW.md` próprio descrevendo suas regras de negócio, 
 2. **Controllers são finos**: recebem DTO, chamam um método do service e devolvem DTO. Regra de negócio fica na entidade (`domain/models`) ou no service (`application/services`).
 3. **Só o repositório acessa o Prisma.** Services dependem da interface do repositório (`domain/repositories`), injetada por token `Symbol`.
 4. **Um módulo nunca importa arquivos internos de outro módulo.** Só pode importar o `<modulo>.module.ts` dele e usar os services listados em `exports`. Nunca acesse tabelas de outro módulo pelo Prisma.
-5. **Erros de negócio usam as classes de `src/shared/domain/errors/domain.error.ts`** (`NotFoundError`, `ConflictError`, `BusinessRuleError`, `ForbiddenError`), com um `code` em `UPPER_SNAKE_CASE`. Não lance `HttpException` em `domain/` nem em `application/`.
+5. **Erros de negócio usam as classes de `src/shared/domain/errors/domain.error.ts`** (`InvalidInputError`, `NotFoundError`, `ConflictError`, `BusinessRuleError`, `ForbiddenError`), com um `code` em `UPPER_SNAKE_CASE`. Não lance `HttpException` em `domain/` nem em `application/`.
 6. **Toda rota é documentada no Swagger** (ver [docs/api-standards.md](docs/api-standards.md#documentação-swagger-obrigatória)).
 7. **Listagens são sempre paginadas** com `PaginationQueryDto` e respondem `PaginatedDto`.
 8. **Imports relativos com extensão `.js`** (ESM `nodenext`), sem path alias e sem arquivos `index.ts` de reexportação.
@@ -92,7 +92,7 @@ Cada módulo tem um `OVERVIEW.md` próprio descrevendo suas regras de negócio, 
 
 | Caminho | O que é |
 | --- | --- |
-| `domain/errors/domain.error.ts` | `DomainError` e subclasses (404, 409, 422, 403) |
+| `domain/errors/domain.error.ts` | `DomainError` e subclasses (400, 401, 403, 404, 409, 422) |
 | `domain/pagination.ts` | tipos `Pagination`, `Page<T>` e `toSkipTake()` |
 | `application/dto/pagination-query.dto.ts` | `PaginationQueryDto` (`page`, `pageSize`) |
 | `application/dto/paginated.dto.ts` | `PaginatedDto<T>` (`{ data, meta }`) |

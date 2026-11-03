@@ -15,6 +15,27 @@ export abstract class DomainError extends Error {
   }
 }
 
+/** Detalhe de um campo inválido, no mesmo formato dos erros de validação. */
+export interface DetalheErro {
+  field: string;
+  messages: string[];
+}
+
+/**
+ * Entrada inválida que só o service consegue verificar (ex.: conteúdo de um
+ * arquivo enviado). HTTP 400. Para erros de formato de DTO, use o
+ * ValidationPipe.
+ */
+export class InvalidInputError extends DomainError {
+  constructor(
+    code: string,
+    message: string,
+    readonly details?: DetalheErro[],
+  ) {
+    super(code, message);
+  }
+}
+
 /** Recurso inexistente ou fora do alcance do usuário. HTTP 404. */
 export class NotFoundError extends DomainError {}
 

@@ -14,6 +14,7 @@ import {
   ConflictError,
   DomainError,
   ForbiddenError,
+  InvalidInputError,
   NotFoundError,
 } from '../../../domain/errors/domain.error.js';
 import type {
@@ -27,6 +28,7 @@ type ResolvedError = Pick<
 >;
 
 const DOMAIN_ERROR_STATUS = new Map<Function, HttpStatus>([
+  [InvalidInputError, HttpStatus.BAD_REQUEST],
   [AuthenticationError, HttpStatus.UNAUTHORIZED],
   [NotFoundError, HttpStatus.NOT_FOUND],
   [ConflictError, HttpStatus.CONFLICT],
@@ -89,6 +91,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
           HttpStatus.UNPROCESSABLE_ENTITY,
         code: exception.code,
         message: exception.message,
+        ...(exception instanceof InvalidInputError &&
+          exception.details && { details: exception.details }),
       };
     }
 
