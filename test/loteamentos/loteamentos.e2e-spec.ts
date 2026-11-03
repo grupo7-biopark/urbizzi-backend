@@ -1,7 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module.js';
 import { setupApp } from '../../src/app.setup.js';
 import { PrismaService } from '../../src/shared/infra/database/prisma.service.js';
@@ -15,7 +14,7 @@ import {
 const ID_INEXISTENTE = '0b6f3c1e-8a52-4a8e-9d3f-2c7f1e5a9b10';
 
 describe('Loteamentos (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let prisma: PrismaService;
   let usuarios: UsuariosTeste;
 
