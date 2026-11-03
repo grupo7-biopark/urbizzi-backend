@@ -208,4 +208,19 @@ export class Planta {
       updatedAt: new Date(),
     };
   }
+
+  /** Torna a planta a exibida no mapa; só uma planta PRONTA pode ser ativada. */
+  ativar(): void {
+    if (this.props.status !== 'PRONTA') {
+      throw new ConflictError(
+        'PLANTA_NAO_PRONTA',
+        'Só é possível ativar uma planta com o processamento concluído',
+      );
+    }
+    this.props = { ...this.props, ativa: true, updatedAt: new Date() };
+  }
+
+  desativar(): void {
+    this.props = { ...this.props, ativa: false, updatedAt: new Date() };
+  }
 }

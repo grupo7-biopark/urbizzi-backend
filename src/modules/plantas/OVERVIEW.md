@@ -1,6 +1,6 @@
 # Módulo plantas
 
-Planta humanizada exibida no mapa (RF26, RF27). Recebe a planta enviada pela Urbizzi como imagem única ou como fatias em grade e guarda os originais no armazenamento S3. Depois, um worker processa a planta em uma pirâmide de tiles. Na próxima issue, o módulo passa a servir a planta ativa (BE-32).
+Planta humanizada exibida no mapa (RF26, RF27). Recebe a planta enviada pela Urbizzi como imagem única ou como fatias em grade e guarda os originais no armazenamento S3. Depois, um worker processa a planta em uma pirâmide de tiles, e o módulo serve a planta ativa e os tiles dela ao mapa (RF31).
 
 ## Modelo de domínio
 
@@ -37,6 +37,16 @@ Planta humanizada exibida no mapa (RF26, RF27). Recebe a planta enviada pela Urb
 20. Só uma planta `ERRO` pode ser reprocessada (`409 PLANTA_NAO_REPROCESSAVEL` nos outros status). Ela volta a `ENVIADA`, e a ação fica auditada (`REPROCESSAR`).
 21. O processamento automático não é auditado, porque é ação do sistema. O status e a mensagem de erro ficam na própria planta.
 
+### Planta ativa e tiles (BE-32)
+
+22. Só uma planta fica ativa por vez. Ao ativar uma, a anterior é desativada na mesma transação. Um advisory lock serializa ativações simultâneas, e o índice parcial `plantas_ativa_key` garante a regra no banco.
+23. Só uma planta `PRONTA` pode ser ativada (`409 PLANTA_NAO_PRONTA`). Ativar a planta que já está ativa não muda nada.
+24. A ativação é auditada: `ATIVAR` na nova e `DESATIVAR` na anterior. As versões anteriores continuam consultáveis.
+25. `GET /v1/plantas/ativa` devolve a planta ativa com `tilesUrl`, o modelo de URL para o `L.tileLayer` do Leaflet. O frontend usa `CRS.Simple`, `maxNativeZoom = maxZoom`, `tileSize = tamanhoTile` e limites de `larguraPx` x `alturaPx` no zoom máximo.
+26. Os tiles são servidos pela API (proxy em streaming do bucket), não por URL assinada nem redirect. Assim, o modelo de URL é fixo e cacheável e funciona igual no mapa interno e no link público (BE-38), sem expor o armazenamento.
+27. A rota de tiles é pública (sem token, ver [segurança](../../../docs/security.md#rotas-públicas)) e responde `Cache-Control: public, max-age=31536000, immutable`. Os tiles de uma planta `PRONTA` nunca mudam. Respostas de erro não levam esse header.
+28. Só plantas `PRONTA` têm tiles. Coordenadas fora da pirâmide retornam `404 TILE_NAO_ENCONTRADO` sem consultar o armazenamento, e parâmetros inválidos retornam `400 DADOS_INVALIDOS`.
+
 Medição local com uma planta do tamanho da real (9 fatias de 4404 x 3482 px, 13212 x 10446 px no total, 2.880 tiles): 86 s de processamento e pico de cerca de 100 MB a mais de memória no processo, com o `/health` respondendo em no máximo 217 ms durante o processamento.
 
 ## Endpoints
@@ -47,6 +57,9 @@ Medição local com uma planta do tamanho da real (9 fatias de 4404 x 3482 px, 1
 | `GET` | `/v1/plantas` | todos os autenticados | lista paginada, da versão mais recente para a mais antiga; filtro `status` (vários, separados por vírgula) |
 | `GET` | `/v1/plantas/:id` | todos os autenticados | detalha a planta, com o status do processamento |
 | `POST` | `/v1/plantas/:id/reprocessar` | ADMINISTRADOR, GESTOR | devolve uma planta com `ERRO` para a fila |
+| `GET` | `/v1/plantas/ativa` | todos os autenticados | planta ativa, com metadados e `tilesUrl` |
+| `POST` | `/v1/plantas/:id/ativar` | ADMINISTRADOR, GESTOR | ativa uma planta `PRONTA` e desativa a anterior |
+| `GET` | `/v1/plantas/:id/tiles/:z/:x/:y.webp` | pública | tile WebP de uma planta `PRONTA`, com cache longo |
 
 ## Códigos de erro
 
@@ -62,6 +75,9 @@ Medição local com uma planta do tamanho da real (9 fatias de 4404 x 3482 px, 1
 | `PLANTA_MUITO_GRANDE` | 422 | imagem completa acima do limite de pixels |
 | `PLANTA_NAO_ENCONTRADA` | 404 | id inexistente |
 | `PLANTA_NAO_REPROCESSAVEL` | 409 | reprocessar planta que não está com `ERRO` |
+| `PLANTA_NAO_PRONTA` | 409 | ativar planta que não está `PRONTA` |
+| `PLANTA_ATIVA_NAO_ENCONTRADA` | 404 | nenhuma planta ativa |
+| `TILE_NAO_ENCONTRADO` | 404 | planta inexistente ou não pronta, ou coordenada fora da pirâmide |
 
 ## Dependências
 

@@ -29,6 +29,8 @@ function setup(metadados: Record<string, MetadadosImagem | null> = {}) {
     create: vi.fn(),
     update: vi.fn(),
     reservarProxima: vi.fn(),
+    findAtiva: vi.fn(),
+    travarAtiva: vi.fn(),
     marcarInterrompidas: vi.fn(),
   } satisfies PlantaRepository;
   const processador = {
@@ -261,6 +263,170 @@ describe('PlantaService', () => {
       repository.findById.mockResolvedValue(null);
       await expect(service.reprocessar('id', usuario)).rejects.toMatchObject({
         code: 'PLANTA_NAO_ENCONTRADA',
+      });
+    });
+  });
+
+  describe('planta ativa e tiles', () => {
+    function pronta(ativa = false) {
+      const planta = Planta.create({
+        nome: 'P',
+        versao: 1,
+        gradeLinhas: 1,
+        gradeColunas: 1,
+        originais: [],
+        criadoPorId: usuario.id,
+      });
+      planta.concluirProcessamento({
+        larguraPx: 600,
+        alturaPx: 400,
+        maxZoom: 2,
+        tamanhoTile: 256,
+        tilesPath: `plantas/${planta.id}`,
+      });
+      if (ativa) planta.ativar();
+      return planta;
+    }
+
+    it('ativa a planta pronta e desativa a anterior, com auditoria', async () => {
+      const { service, repository, auditoria } = setup();
+      const anterior = pronta(true);
+      const nova = pronta();
+      repository.travarAtiva.mockResolvedValue(anterior);
+      repository.findById.mockResolvedValue(nova);
+
+      const dto = await service.ativar(nova.id, usuario);
+
+      expect(dto).toMatchObject({ id: nova.id, ativa: true });
+      expect(anterior.ativa).toBe(false);
+      expect(repository.update.mock.calls.map(([p]) => p)).toEqual([
+        anterior,
+        nova,
+      ]);
+      expect(auditoria.registrar.mock.calls.map(([a]) => a.acao)).toEqual([
+        'DESATIVAR',
+        'ATIVAR',
+      ]);
+      expect(auditoria.registrar.mock.calls[1][0]).toMatchObject({
+        entidadeId: nova.id,
+        valorAnterior: { ativa: false },
+        valorNovo: { ativa: true },
+      });
+    });
+
+    it('ativa sem planta anterior', async () => {
+      const { service, repository, auditoria } = setup();
+      const nova = pronta();
+      repository.travarAtiva.mockResolvedValue(null);
+      repository.findById.mockResolvedValue(nova);
+
+      await service.ativar(nova.id, usuario);
+
+      expect(repository.update).toHaveBeenCalledTimes(1);
+      expect(auditoria.registrar).toHaveBeenCalledTimes(1);
+    });
+
+    it('ativar a planta já ativa não muda nada', async () => {
+      const { service, repository, auditoria } = setup();
+      const atual = pronta(true);
+      repository.travarAtiva.mockResolvedValue(atual);
+      repository.findById.mockResolvedValue(atual);
+
+      await expect(service.ativar(atual.id, usuario)).resolves.toMatchObject({
+        ativa: true,
+      });
+      expect(repository.update).not.toHaveBeenCalled();
+      expect(auditoria.registrar).not.toHaveBeenCalled();
+    });
+
+    it('recusa ativar planta que não está pronta', async () => {
+      const { service, repository } = setup();
+      const anterior = pronta(true);
+      repository.travarAtiva.mockResolvedValue(anterior);
+      repository.findById.mockResolvedValue(
+        Planta.create({
+          nome: 'P',
+          versao: 2,
+          gradeLinhas: 1,
+          gradeColunas: 1,
+          originais: [],
+          criadoPorId: usuario.id,
+        }),
+      );
+
+      await expect(service.ativar('id', usuario)).rejects.toMatchObject({
+        code: 'PLANTA_NAO_PRONTA',
+      });
+      expect(anterior.ativa).toBe(true);
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('devolve a planta ativa com o modelo de URL dos tiles', async () => {
+      const { service, repository } = setup();
+      const atual = pronta(true);
+      repository.findAtiva.mockResolvedValue(atual);
+
+      await expect(service.ativa()).resolves.toMatchObject({
+        id: atual.id,
+        maxZoom: 2,
+        tamanhoTile: 256,
+        tilesUrl: `/v1/plantas/${atual.id}/tiles/{z}/{x}/{y}.webp`,
+      });
+    });
+
+    it('retorna 404 sem planta ativa', async () => {
+      const { service, repository } = setup();
+      repository.findAtiva.mockResolvedValue(null);
+      await expect(service.ativa()).rejects.toMatchObject({
+        code: 'PLANTA_ATIVA_NAO_ENCONTRADA',
+      });
+    });
+
+    it('baixa o tile pela chave z/x/y da planta', async () => {
+      const { service, repository, storage } = setup();
+      const planta = pronta();
+      repository.findById.mockResolvedValue(planta);
+      storage.download.mockResolvedValue('conteudo');
+
+      await expect(service.tile(planta.id, 2, 2, 1)).resolves.toBe('conteudo');
+      expect(storage.download).toHaveBeenCalledWith(
+        'tiles',
+        `plantas/${planta.id}/2/2/1.webp`,
+      );
+    });
+
+    it.each([
+      [3, 0, 0],
+      [2, 3, 0],
+      [2, 0, 2],
+      [0, 1, 0],
+    ])('retorna 404 para tile fora da pirâmide (%i/%i/%i)', async (z, x, y) => {
+      const { service, repository, storage } = setup();
+      repository.findById.mockResolvedValue(pronta());
+      await expect(service.tile('id', z, x, y)).rejects.toMatchObject({
+        code: 'TILE_NAO_ENCONTRADO',
+      });
+      expect(storage.download).not.toHaveBeenCalled();
+    });
+
+    it('retorna 404 para planta inexistente ou não pronta', async () => {
+      const { service, repository } = setup();
+      repository.findById.mockResolvedValueOnce(null);
+      await expect(service.tile('id', 0, 0, 0)).rejects.toMatchObject({
+        code: 'TILE_NAO_ENCONTRADO',
+      });
+      repository.findById.mockResolvedValueOnce(
+        Planta.create({
+          nome: 'P',
+          versao: 1,
+          gradeLinhas: 1,
+          gradeColunas: 1,
+          originais: [],
+          criadoPorId: usuario.id,
+        }),
+      );
+      await expect(service.tile('id', 0, 0, 0)).rejects.toMatchObject({
+        code: 'TILE_NAO_ENCONTRADO',
       });
     });
   });

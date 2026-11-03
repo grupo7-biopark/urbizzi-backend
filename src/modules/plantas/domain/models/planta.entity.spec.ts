@@ -118,4 +118,24 @@ describe('Planta', () => {
       },
     );
   });
+
+  describe('ativação', () => {
+    it('ativa só planta PRONTA e desativa', () => {
+      const planta = Planta.create(input);
+      expect(() => planta.ativar()).toThrow(
+        expect.objectContaining({ code: 'PLANTA_NAO_PRONTA' }),
+      );
+      planta.concluirProcessamento({
+        larguraPx: 1,
+        alturaPx: 1,
+        maxZoom: 0,
+        tamanhoTile: 256,
+        tilesPath: 'plantas/x',
+      });
+      planta.ativar();
+      expect(planta.ativa).toBe(true);
+      planta.desativar();
+      expect(planta.ativa).toBe(false);
+    });
+  });
 });

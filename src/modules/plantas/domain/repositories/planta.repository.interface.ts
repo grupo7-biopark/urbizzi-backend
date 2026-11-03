@@ -16,6 +16,13 @@ export interface PlantaRepository {
    * para dois envios simultâneos não pegarem a mesma versão.
    */
   proximaVersao(tx: PrismaTransaction): Promise<number>;
+  /** Planta exibida no mapa, se houver. */
+  findAtiva(): Promise<Planta | null>;
+  /**
+   * Bloqueia a troca de planta ativa até o fim da transação e devolve a
+   * ativa atual, para duas ativações simultâneas não se atropelarem.
+   */
+  travarAtiva(tx: PrismaTransaction): Promise<Planta | null>;
   create(planta: Planta, tx?: PrismaTransaction): Promise<void>;
   update(planta: Planta, tx?: PrismaTransaction): Promise<void>;
   /**

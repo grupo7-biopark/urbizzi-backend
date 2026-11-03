@@ -119,6 +119,7 @@ Ao implementar cada módulo, a coluna "Perfis" da tabela de endpoints do `OVERVI
 ### Rotas públicas
 
 - O mapa público (`/v1/links-publicos/:token/mapa`, BE-38) é `@Public()` e valida o token do link (ativo e não expirado). Ele expõe **só** o necessário para o mapa: identificação do lote, status e geometria/marcador. Nunca dados de cliente, vendedor, reserva ou proposta.
+- Os tiles da planta (`/v1/plantas/:id/tiles/:z/:x/:y.webp`, BE-32) são `@Public()`: o `<img>` que o Leaflet usa para carregar cada tile não envia o header `Authorization`, e o mapa público usa os mesmos tiles. A rota só serve plantas `PRONTA` e valida as coordenadas contra a pirâmide. O id da planta é um UUID aleatório. A planta é material comercial, sem dados pessoais. Os demais dados da planta (`GET /v1/plantas*`) continuam exigindo login.
 - Tokens de link público: aleatórios (`randomBytes(32)` em base64url), nunca sequenciais nem derivados do id.
 
 ## Dados pessoais (LGPD)

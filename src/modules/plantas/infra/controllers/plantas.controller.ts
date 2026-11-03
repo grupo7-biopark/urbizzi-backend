@@ -10,27 +10,46 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
 import type { PaginatedDto } from '../../../../shared/application/dto/paginated.dto.js';
 import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
 import { CurrentUser } from '../../../../shared/infra/auth/current-user.decorator.js';
 import { Perfis } from '../../../../shared/infra/auth/perfis.decorator.js';
+import { Public } from '../../../../shared/infra/auth/public.decorator.js';
 import { RemoverUploadsInterceptor } from '../../../../shared/infra/http/interceptors/remover-uploads.interceptor.js';
 import { ApiErrorResponses } from '../../../../shared/infra/http/swagger/api-error-responses.decorator.js';
 import { ApiPaginatedResponse } from '../../../../shared/infra/http/swagger/api-paginated-response.decorator.js';
 import { EnviarPlantaDto } from '../../application/dto/enviar-planta.dto.js';
 import { ListPlantasQueryDto } from '../../application/dto/list-plantas-query.dto.js';
+import { PlantaAtivaDto } from '../../application/dto/planta-ativa.dto.js';
 import { PlantaDto } from '../../application/dto/planta.dto.js';
+import { TileParamsDto } from '../../application/dto/tile-params.dto.js';
 import { PlantaService } from '../../application/services/planta.service.js';
 
 /** Cada arquivo (imagem única ou fatia) pode ter até 300 MB. */
 const TAMANHO_MAXIMO_ARQUIVO = 300 * 1024 * 1024;
 /** Grade de até 10 x 10 fatias. */
 const MAXIMO_ARQUIVOS = 100;
+
+/**
+ * Os tiles de uma planta PRONTA nunca mudam (o reprocessamento só vale para
+ * plantas com erro), então o navegador e proxies podem guardá-los por um ano.
+ */
+const CACHE_TILE = 'public, max-age=31536000, immutable';
 
 /** Arquivo gravado em disco pelo multer. */
 interface ArquivoEnviado {
@@ -93,6 +112,49 @@ export class PlantasController {
   @ApiErrorResponses(400, 401)
   list(@Query() query: ListPlantasQueryDto): Promise<PaginatedDto<PlantaDto>> {
     return this.plantaService.list(query);
+  }
+
+  /** Planta exibida no mapa, com dimensões, zoom máximo e o modelo de URL dos tiles */
+  @Get('ativa')
+  @ApiErrorResponses(401, 404)
+  ativa(): Promise<PlantaAtivaDto> {
+    return this.plantaService.ativa();
+  }
+
+  /**
+   * Tile WebP de uma planta PRONTA. Rota pública (o `<img>` do Leaflet não
+   * envia token e o link público usa os mesmos tiles), com cache HTTP longo
+   */
+  @Get(':id/tiles/:z/:x/:y.webp')
+  @Public()
+  @ApiProduces('image/webp')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiErrorResponses(400, 404)
+  async tile(
+    @Param() params: TileParamsDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const conteudo = await this.plantaService.tile(
+      params.id,
+      params.z,
+      params.x,
+      params.y,
+    );
+    // Só depois de achar o tile: respostas de erro não podem ir para o cache.
+    res.setHeader('Cache-Control', CACHE_TILE);
+    return new StreamableFile(conteudo, { type: 'image/webp' });
+  }
+
+  /** Torna uma planta PRONTA a exibida no mapa; a anterior é desativada */
+  @Post(':id/ativar')
+  @HttpCode(HttpStatus.OK)
+  @Perfis('ADMINISTRADOR', 'GESTOR')
+  @ApiErrorResponses(400, 401, 403, 404, 409)
+  ativar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() usuario: UsuarioAutenticado,
+  ): Promise<PlantaDto> {
+    return this.plantaService.ativar(id, usuario);
   }
 
   /** Devolve uma planta com ERRO para a fila de processamento */
