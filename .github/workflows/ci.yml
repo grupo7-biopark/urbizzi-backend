@@ -65,6 +65,7 @@ jobs:
       S3_SECRET_ACCESS_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       S3_ENDPOINT: http://localhost:3900
       JWT_SECRET: segredo-ficticio-exclusivo-do-ci-com-32-caracteres
+      MAILPIT_E2E: 'true'
       NODE_ENV: test
       DATABASE_URL: postgresql://urbizzi:urbizzi@localhost:5432/urbizzi_test?schema=public
     steps:
@@ -86,6 +87,15 @@ jobs:
 
       - name: Subir Garage e aguardar inicialização dos buckets
         run: docker compose up -d --build --wait --wait-timeout 120 garage
+
+      - name: Subir Mailpit
+        run: |
+          docker compose up -d mailpit
+          for tentativa in $(seq 1 30); do
+            if curl --fail --silent http://localhost:8025/api/v1/messages > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
 
       - name: Testes e2e
         run: npm run test:e2e

@@ -10,6 +10,11 @@ describe('validate (env)', () => {
 
   it('aplica valores padrão quando variáveis opcionais estão ausentes', () => {
     expect(validate(validEnv)).toEqual({
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: 1025,
+      SMTP_SECURE: false,
+      SMTP_FROM: 'nao-responda@urbizzi.local',
+      PASSWORD_RESET_URL: 'http://localhost:5173/reset-password',
       S3_ENDPOINT: 'http://localhost:3900',
       S3_REGION: 'garage',
       S3_FORCE_PATH_STYLE: true,
@@ -88,5 +93,14 @@ describe('validate (env)', () => {
     expect(() => validate({ ...validEnv, NODE_ENV: 'staging' })).toThrow(
       /NODE_ENV/,
     );
+  });
+  it.each([
+    { SMTP_PORT: 0 },
+    { SMTP_FROM: 'invalido' },
+    { SMTP_SECURE: 'sim' },
+    { PASSWORD_RESET_URL: 'javascript:alert(1)' },
+    { PASSWORD_RESET_URL: 'https://user:secret@exemplo.com/reset' },
+  ])('rejeita configuração de e-mail inválida %j', (override) => {
+    expect(() => validate({ ...validEnv, ...override })).toThrow();
   });
 });

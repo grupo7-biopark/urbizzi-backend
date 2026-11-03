@@ -1,3 +1,7 @@
+import { EmailModule } from '../../shared/infra/email/email.module.js';
+import { RecuperacaoSenhaService } from './application/services/recuperacao-senha.service.js';
+import { RECUPERACAO_SENHA_REPOSITORY } from './domain/repositories/recuperacao-senha.repository.interface.js';
+import { PrismaRecuperacaoSenhaRepository } from './infra/repositories/prisma-recuperacao-senha.repository.js';
 import { PerfisGuard } from '../../shared/infra/auth/perfis.guard.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -15,6 +19,7 @@ import { AuthController } from './infra/controllers/auth.controller.js';
 @Module({
   imports: [
     UsuariosModule,
+    EmailModule,
     JwtModule.register({}),
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60000, limit: 5 }],
@@ -24,6 +29,11 @@ import { AuthController } from './infra/controllers/auth.controller.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    RecuperacaoSenhaService,
+    {
+      provide: RECUPERACAO_SENHA_REPOSITORY,
+      useClass: PrismaRecuperacaoSenhaRepository,
+    },
     { provide: AUTENTICADOR, useExisting: AuthService },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PerfisGuard },
