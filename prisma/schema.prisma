@@ -153,6 +153,8 @@ model Loteamento {
   quadras       Quadra[]
   linksPublicos LinkPublico[]
 
+  // Nome único entre os loteamentos não excluídos (BE-14)
+  @@unique([nome], map: "loteamentos_nome_key", where: { deletedAt: null })
   @@map("loteamentos")
 }
 

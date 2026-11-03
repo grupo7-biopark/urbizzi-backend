@@ -123,6 +123,7 @@ Restrições atuais:
 | Tabela | Restrição | Tipo | Regra |
 | --- | --- | --- | --- |
 | `usuarios` | `usuarios_email_key` | unique | e-mail único |
+| `loteamentos` | `loteamentos_nome_key` | unique parcial (`deleted_at IS NULL`) | nome único (BE-14); a comparação sem diferenciar maiúsculas fica no service |
 | `quadras` | `quadras_loteamento_id_numero_key` | unique parcial (`deleted_at IS NULL`) | número da quadra único por loteamento |
 | `lotes` | `lotes_quadra_id_numero_key` | unique parcial (`deleted_at IS NULL`) | RN21 |
 | `lotes` | `lotes_area_m2_check`, `lotes_valor_check` | check | área > 0, valor ≥ 0 |
@@ -265,7 +266,7 @@ erDiagram
   }
   loteamentos {
     uuid id PK
-    varchar nome
+    varchar nome "único entre os não excluídos"
     text descricao
     varchar localizacao
   }
