@@ -369,3 +369,7 @@ Decisões de modelagem em relação ao escopo v2:
 ### Sessões de autenticação (BE-07)
 
 A tabela `sessoes`, pertencente ao módulo `auth`, guarda apenas hash SHA-256 do refresh token, usuário, validade e revogação. O consumo do refresh usa `updateMany` condicionado a token não revogado e ainda válido, seguido de inserção da nova sessão na mesma transação. Concorrência resulta em somente uma renovação. Índices por usuário e expiração permitem consultas e futura limpeza de sessões vencidas; não há rotina de limpeza automática nesta issue.
+
+### Busca de clientes (BE-18)
+
+A migration enable_unaccent habilita a extensão PostgreSQL unaccent para busca textual sem distinguir acentos. Não modifica os nomes armazenados. A consulta usa parâmetros, soft delete e leitura repetível para manter página/total coerentes. O índice parcial existente continua garantindo documento único para clientes não excluídos, inclusive sob concorrência.

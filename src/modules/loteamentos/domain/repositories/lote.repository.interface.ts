@@ -14,6 +14,12 @@ export interface LoteFiltros {
 }
 
 export interface LoteRepository {
+  alterarStatus(
+    id: string,
+    esperado: StatusLote,
+    novo: StatusLote,
+    tx: PrismaTransaction,
+  ): Promise<void>;
   findById(id: string, tx?: PrismaTransaction): Promise<Lote | null>;
   /** Compara o número dentro da quadra sem diferenciar maiúsculas. */
   existsByNumero(

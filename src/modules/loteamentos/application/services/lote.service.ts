@@ -1,7 +1,9 @@
+import type { BloquearLoteDto } from '../dto/bloquear-lote.dto.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { PaginatedDto } from '../../../../shared/application/dto/paginated.dto.js';
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
 } from '../../../../shared/domain/errors/domain.error.js';
 import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
@@ -120,6 +122,51 @@ export class LoteService {
         },
         tx,
       );
+    });
+  }
+
+  bloquear(
+    id: string,
+    dto: BloquearLoteDto,
+    usuario: UsuarioAutenticado,
+  ): Promise<LoteDto> {
+    return this.alterarBloqueio(id, usuario, true, dto.motivo);
+  }
+
+  desbloquear(id: string, usuario: UsuarioAutenticado): Promise<LoteDto> {
+    return this.alterarBloqueio(id, usuario, false);
+  }
+
+  private async alterarBloqueio(
+    id: string,
+    usuario: UsuarioAutenticado,
+    bloquear: boolean,
+    motivo?: string,
+  ): Promise<LoteDto> {
+    if (usuario.perfil !== 'ADMINISTRADOR' && usuario.perfil !== 'GESTOR')
+      throw new ForbiddenError(
+        'ACESSO_NEGADO',
+        'Você não tem permissão para executar esta ação',
+      );
+    return this.transactionManager.run(async (tx) => {
+      const lote = await this.getOrFail(id, tx);
+      const anterior = lote.status;
+      if (bloquear) lote.bloquear(motivo ?? '');
+      else lote.desbloquear();
+      await this.loteRepository.alterarStatus(id, anterior, lote.status, tx);
+      await this.auditoriaService.registrar(
+        {
+          usuarioId: usuario.id,
+          entidadeTipo: ENTIDADE_TIPO,
+          entidadeId: id,
+          acao: bloquear ? 'BLOQUEAR' : 'DESBLOQUEAR',
+          valorAnterior: { status: anterior },
+          valorNovo: { status: lote.status },
+          motivo: bloquear ? motivo!.trim() : null,
+        },
+        tx,
+      );
+      return LoteDto.from(lote);
     });
   }
 
