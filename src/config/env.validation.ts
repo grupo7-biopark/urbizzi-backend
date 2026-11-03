@@ -11,6 +11,16 @@ const bucket = z
   .regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/);
 
 export const envSchema = z.object({
+  SMTP_HOST: z.string().min(1).default('localhost'),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.email().default('nao-responda@urbizzi.local'),
+  PASSWORD_RESET_URL: endpoint.default('http://localhost:5173/reset-password'),
   S3_ENDPOINT: endpoint.default('http://localhost:3900'),
   S3_PUBLIC_ENDPOINT: endpoint.optional(),
   S3_REGION: z.string().min(1).default('garage'),

@@ -12,18 +12,31 @@ export class PrismaHistoricoAuditoriaRepository implements HistoricoAuditoriaRep
     tx?: PrismaTransaction,
   ): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.historicoAuditoria.create({
-      data: {
-        id: historico.id,
-        usuarioId: historico.usuarioId,
-        entidadeTipo: historico.entidadeTipo,
-        entidadeId: historico.entidadeId,
-        acao: historico.acao,
-        valorAnterior: historico.valorAnterior ?? Prisma.DbNull,
-        valorNovo: historico.valorNovo ?? Prisma.DbNull,
-        motivo: historico.motivo,
-        createdAt: historico.createdAt,
-      },
+    await db.historicoAuditoria.create({ data: this.toData(historico) });
+  }
+  async createMany(
+    historicos: HistoricoAuditoria[],
+    tx?: PrismaTransaction,
+  ): Promise<void> {
+    if (historicos.length === 0) return;
+    const db = tx ?? this.prisma;
+    await db.historicoAuditoria.createMany({
+      data: historicos.map((historico) => this.toData(historico)),
     });
+  }
+  private toData(
+    historico: HistoricoAuditoria,
+  ): Prisma.HistoricoAuditoriaCreateManyInput {
+    return {
+      id: historico.id,
+      usuarioId: historico.usuarioId,
+      entidadeTipo: historico.entidadeTipo,
+      entidadeId: historico.entidadeId,
+      acao: historico.acao,
+      valorAnterior: historico.valorAnterior ?? Prisma.DbNull,
+      valorNovo: historico.valorNovo ?? Prisma.DbNull,
+      motivo: historico.motivo,
+      createdAt: historico.createdAt,
+    };
   }
 }

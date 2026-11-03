@@ -53,7 +53,7 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `propostas` | `Proposta` | proposta, aprovação/rejeição, venda do lote | `reservas`, `loteamentos`, `configuracoes`, `auditoria` | BE-23 a BE-25 |
 | `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
 | `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos` | BE-33, BE-35, BE-36 |
-| `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `mapa`, `auditoria` | BE-37, BE-38 |
+| `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria` (mapa previsto na BE-38) | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 
 Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em [storage.md](storage.md). Contrato `Storage` e token `STORAGE` ficam em `shared/application/storage`, com helper para geração de chaves. Os módulos consumidores importam `StorageModule` e injetam o contrato na camada application, sem importar AWS SDK. Esta infraestrutura técnica não possui tabela nem endpoints próprios.
@@ -214,7 +214,7 @@ Portas técnicas de autenticação (`AccessToken`) ficam em `domain/repositories
 
 ## Auditoria
 
-O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)`. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. Importe `AuditoriaModule` no módulo consumidor e injete `AuditoriaService` exportado. O método retorna `Promise<void>` e propaga falhas; não capture o erro dentro da transação para continuar a alteração.
+O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, entidadeTipo, entidadeId, acao, valorAnterior, valorNovo, motivo }, tx)` e, para operações em lote, `registrarVarios([...], tx)`, que grava todos os registros em uma única inserção. Toda alteração relevante (mudança de status, criação, edição, exclusão) é auditada **dentro da mesma transação** da alteração. Campos sensíveis (ex.: `senhaHash`) são mascarados pelo próprio serviço. Importe `AuditoriaModule` no módulo consumidor e injete `AuditoriaService` exportado. O método retorna `Promise<void>` e propaga falhas; não capture o erro dentro da transação para continuar a alteração.
 
 ```ts
 await this.transactionManager.run(async (tx) => {
@@ -737,3 +737,16 @@ Módulos importados e services usados; services exportados e quem os usa; evento
 ```
 
 Os testes deste exemplo estão em [testing.md](testing.md#exemplos).
+
+### Recuperação de senha (BE-08)
+
+`RecuperacaoSenhaService` usa `UsuarioService` para consultar contas ativas, gerar hash e alterar senha dentro da transação. O repositório de recuperação acessa somente as tabelas de `auth` (tokens e sessões). `EmailModule`, em `shared/infra/email`, implementa o contrato técnico `shared/application/email/Email` com SMTP via Nodemailer. Não possui tabelas. O SMTP é chamado depois de persistir o token, fora de transação.
+
+Na autenticação, `AuthService` abre as transações de login/refresh com `TransactionManager`. `UsuarioService` coordena o bloqueio de credenciais no repositório dono de `usuarios`, e o repositório de sessões recebe a mesma transação para criação/rotação. A redefinição usa o mesmo bloqueio ao atualizar a senha, sempre antes de consumir tokens e revogar sessões. Isso evita sessões sobreviventes em requisições simultâneas sem migração ou acoplamento entre repositórios de módulos distintos.
+## Entregas BE-11, BE-13, BE-18, BE-26 e BE-37
+
+Configurações exporta leitura tipada de prazos e usa cache local invalidado após commit. Clientes fornece cadastro/busca com documento validado e snapshots de auditoria mascarados. Links públicos usa o LoteamentoService exportado para validar escopo opcional e mantém tokens fora da auditoria. Bloqueio/desbloqueio usa atualização condicional do status anterior e grava a auditoria na mesma transação.
+
+A consulta de auditoria BE-13 é uma projeção polimórfica de leitura: o adapter consulta o nome do autor e usa EXISTS de Reserva/Proposta para verificar o vendedor. Essa é uma exceção explícita de read model à leitura isolada de tabelas: não há escrita em tabelas alheias, uso de repositórios alheios, exposição de contatos ou importação de módulos que criaria ciclos. O service define o escopo do Comercial e o repositório aplica esse escopo junto à paginação no banco. A autoria do evento nunca comprova propriedade do recurso.
+
+Cada módulo documenta seus endpoints, códigos de erro e limites no OVERVIEW. Limite de renovações e endpoint público do mapa seguem em suas issues futuras; não são antecipados nestas entregas.
