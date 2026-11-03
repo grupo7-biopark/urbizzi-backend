@@ -185,6 +185,9 @@ model Lote {
   exibirValorPublico Boolean    @default(false) @map("exibir_valor_publico")
   status             StatusLote @default(DISPONIVEL)
   observacoes        String?    @db.Text
+  // Marcado pelo fluxo de reserva (BE-19); impede a exclusão do lote (BE-16)
+  // sem que o módulo loteamentos leia a tabela de reservas
+  teveReserva        Boolean    @default(false) @map("teve_reserva")
   createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz(3)

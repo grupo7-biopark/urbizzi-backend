@@ -97,6 +97,7 @@ Cada módulo tem um `OVERVIEW.md` próprio descrevendo suas regras de negócio, 
 | `application/dto/pagination-query.dto.ts` | `PaginationQueryDto` (`page`, `pageSize`) |
 | `application/dto/paginated.dto.ts` | `PaginatedDto<T>` (`{ data, meta }`) |
 | `application/dto/trim.transform.ts` | `@Trim()` para campos texto de DTOs (`{ vazioComoNulo: true }` em opcionais) |
+| `application/dto/decimal-positivo.validator.ts` | `@DecimalPositivo(digitosInteiros)` para área e dinheiro em DTOs (texto com até 2 casas, maior que zero) |
 | `infra/database/` | `PrismaModule` (global), `PrismaService`, tipo `PrismaTransaction` |
 | `infra/http/filters/all-exceptions.filter.ts` | converte qualquer erro no formato padrão |
 | `infra/http/swagger/` | `@ApiErrorResponses()` e `@ApiPaginatedResponse()` |
