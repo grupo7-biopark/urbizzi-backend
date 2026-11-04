@@ -53,7 +53,8 @@ describe('ReservaService', () => {
     repository.findById.mockResolvedValue(
       Reserva.create({ ...dto, vendedorId: 'v' }, 7),
     );
-    expect((await service.findById('r', u)).vendedorId).toBe('v');
+    expect((await service.findById('r', u, tx)).vendedorId).toBe('v');
+    expect(repository.findById).toHaveBeenCalledWith('r', tx);
     await expect(
       service.findById('r', { ...u, id: 'outro' }),
     ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });

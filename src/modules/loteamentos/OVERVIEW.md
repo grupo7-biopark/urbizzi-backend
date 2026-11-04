@@ -93,3 +93,5 @@ Escrita condicional no status anterior evita sobrescrever reserva/venda/bloqueio
 BE-33: LoteService.listExcluindo(idsExcluir, query) exporta consulta paginada de lotes existentes, com filtro opcional por loteamento e exclusão de ids fornecidos pelo módulo mapa. O repositório de loteamentos não consulta a tabela de marcadores.
 
 BE-19: LoteService.reservar(id, usuarioId, tx) valida DISPONIVEL, marca teveReserva permanentemente e audita. Leituras de lote com tx bloqueiam a linha até o commit, incluindo exclusão, bloqueio e reserva, evitando excluir um lote que acabou de ser reservado.
+
+BE-21: LoteService.liberarReserva(id, tx) exige RESERVADO, muda para DISPONIVEL sem limpar teveReserva e audita com usuário de sistema. Lote vendido nunca é sobrescrito.

@@ -1,3 +1,4 @@
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ForbiddenError,
@@ -59,9 +60,13 @@ export class ReservaService {
       return ReservaDto.from(reserva);
     });
   }
-  async findById(id: string, usuario: UsuarioAutenticado): Promise<ReservaDto> {
+  async findById(
+    id: string,
+    usuario: UsuarioAutenticado,
+    tx?: PrismaTransaction,
+  ): Promise<ReservaDto> {
     this.assertPerfil(usuario);
-    const reserva = await this.repository.findById(id);
+    const reserva = await this.repository.findById(id, tx);
     if (!reserva)
       throw new NotFoundError(
         'RESERVA_NAO_ENCONTRADA',

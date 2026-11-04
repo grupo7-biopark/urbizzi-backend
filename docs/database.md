@@ -381,3 +381,7 @@ A tabela `sessoes`, pertencente ao módulo `auth`, guarda apenas hash SHA-256 do
 ### Busca de clientes (BE-18)
 
 A migration enable_unaccent habilita a extensão PostgreSQL unaccent para busca textual sem distinguir acentos. Não modifica os nomes armazenados. A consulta usa parâmetros, soft delete e leitura repetível para manter página/total coerentes. O índice parcial existente continua garantindo documento único para clientes não excluídos, inclusive sob concorrência.
+
+### Reserva e expiração (BE-19/BE-21)
+
+A criação marca lotes.teve_reserva permanentemente. LoteService bloqueia a linha nas leituras com tx, inclusive exclusão/bloqueio, e muda status condicionalmente. Expiração bloqueia reserva com SKIP LOCKED e depois lote; revalida prazo/status/aprovação após adquirir o bloqueio e grava somente tabelas do respectivo módulo via serviço dono. O índice parcial reservas_lote_id_ativa_key já existente continua impedindo reserva ativa duplicada. Não há migration nova. Novos comandos de propostas/renovação devem seguir o protocolo reserva → lote e usar a consulta transacional exportada do serviço de reservas.

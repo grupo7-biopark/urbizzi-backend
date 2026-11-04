@@ -178,6 +178,14 @@ export class Lote {
     this.props = { ...this.props, status: 'DISPONIVEL', updatedAt: new Date() };
   }
 
+  liberarReserva(): void {
+    if (this.props.status !== 'RESERVADO')
+      throw new ConflictError(
+        'LOTE_NAO_RESERVADO',
+        'O lote não está reservado',
+      );
+    this.props = { ...this.props, status: 'DISPONIVEL', updatedAt: new Date() };
+  }
   reservar(): void {
     if (this.props.status !== 'DISPONIVEL')
       throw new ConflictError(

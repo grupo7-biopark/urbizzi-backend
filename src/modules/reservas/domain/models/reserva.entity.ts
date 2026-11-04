@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { BusinessRuleError } from '../../../../shared/domain/errors/domain.error.js';
+import {
+  BusinessRuleError,
+  ConflictError,
+} from '../../../../shared/domain/errors/domain.error.js';
 export type StatusReserva = 'ATIVA' | 'CANCELADA' | 'EXPIRADA' | 'CONVERTIDA';
 export interface ReservaProps {
   id: string;
@@ -37,6 +40,14 @@ export class Reserva {
   }
   static restore(props: ReservaProps): Reserva {
     return new Reserva({ ...props });
+  }
+  expirar(agora: Date): void {
+    if (this.props.status !== 'ATIVA' || this.props.dataVencimento > agora)
+      throw new ConflictError(
+        'RESERVA_NAO_VENCIDA',
+        'A reserva não está ativa e vencida',
+      );
+    this.props = { ...this.props, status: 'EXPIRADA' };
   }
   get dados(): ReservaProps {
     return { ...this.props };
