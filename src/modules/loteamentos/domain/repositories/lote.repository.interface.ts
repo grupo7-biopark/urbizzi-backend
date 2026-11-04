@@ -6,6 +6,7 @@ export const LOTE_REPOSITORY = Symbol('LOTE_REPOSITORY');
 
 /** Filtros combináveis (todos em conjunto). */
 export interface LoteFiltros {
+  idsExcluir?: string[];
   loteamentoId?: string;
   quadraId?: string;
   status?: StatusLote[];

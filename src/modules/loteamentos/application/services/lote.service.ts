@@ -63,6 +63,19 @@ export class LoteService {
     return LoteDto.from(lote);
   }
 
+  async listExcluindo(
+    idsExcluir: string[],
+    query: { page: number; pageSize: number; loteamentoId?: string },
+  ): Promise<PaginatedDto<LoteDto>> {
+    const result = await this.loteRepository.list(
+      { idsExcluir, loteamentoId: query.loteamentoId },
+      query,
+    );
+    return PaginatedDto.of(
+      { items: result.items.map(LoteDto.from), total: result.total },
+      query,
+    );
+  }
   async findById(id: string): Promise<LoteDto> {
     return LoteDto.from(await this.getOrFail(id));
   }
