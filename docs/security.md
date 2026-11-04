@@ -161,3 +161,7 @@ Regras:
 ### Sessões simultâneas à troca de senha
 
 Login e refresh são serializados com a redefinição pela linha do usuário. O login verifica a senha sob esse bloqueio; o refresh consome e cria sessões na mesma transação que mantém o bloqueio. A redefinição atualiza o usuário antes de consumir o token e revogar sessões. Uma sessão criada antes dela será revogada; após ela, a senha antiga e os refresh tokens anteriores não podem iniciar nova sessão. JWTs de acesso mantêm sua validade até expirar.
+
+## Gestão administrativa de usuários (BE-10)
+
+Todas as rotas de usuários exigem Administrador. Senha inicial é obrigatória na criação e armazenada com Argon2id; edição não altera senha. Criação, edição de perfil/dados e mudanças de ativo são auditadas atomicamente, sem snapshots com dados pessoais. O último administrador ativo não pode ser desativado nem rebaixado, inclusive em concorrência. Escritas administrativas são serializadas por bloqueio transacional antes da contagem e do bloqueio da linha de usuário compartilhado com a autenticação. Não há exclusão física.

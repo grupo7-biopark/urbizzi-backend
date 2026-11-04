@@ -754,3 +754,6 @@ Cada módulo documenta seus endpoints, códigos de erro e limites no OVERVIEW. L
 ### Marcadores (BE-33)
 
 MapaModule implementa os marcadores previstos no mapa de módulos e exporta MarcadorService. As rotas são aninhadas em plantas, mas pertencem a mapa. PlantaService e LoteService validam os recursos e LoteService.listExcluindo fornece lotes não removidos com exclusão de ids e paginação. Escritas de marcadores e auditoria são atômicas; o índice único existente impede duplicidade concorrente. Listagens são permitidas a todos os perfis internos; edição somente a Administrador/Gestor.
+### Gestão de usuários (BE-10)
+
+UsuariosModule importa AuditoriaModule e mantém UsuarioService exportado para BE-07/BE-08. GestaoUsuarioService atende as rotas administrativas e usa UsuarioRepository para consultas/bloqueios existentes e GestaoUsuarioRepository para persistência/listagem administrativa. Ambos os adapters acessam somente as tabelas do próprio módulo. Escritas administrativas adquirem um bloqueio advisory transacional antes do bloqueio da linha do usuário, garantindo a proteção do último administrador em desativações e rebaixamentos concorrentes. Hash da senha inicial é calculado antes da transação; a auditoria participa do mesmo commit.

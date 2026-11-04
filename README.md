@@ -157,3 +157,9 @@ docs/                arquitetura e padrões
 5. Faça login com a nova senha. A senha anterior, os refresh tokens anteriores e todos os links de recuperação anteriores devem ser rejeitados.
 
 Os testes `test/auth/recuperacao-senha.e2e-spec.ts` usam Postgres real e substituem apenas o envio de e-mail por uma captura em memória. O teste `test/auth/mailpit.e2e-spec.ts` valida SMTP real quando `MAILPIT_E2E=true`; o CI sobe Mailpit e habilita essa verificação.
+
+## Gestão de usuários (BE-10)
+
+Somente Administrador pode usar `/v1/usuarios`. Crie com `POST` e corpo `{ "nome": "Maria Silva", "email": "maria@exemplo.com", "perfil": "COMERCIAL", "senha": "SenhaInicial123!" }`. Os perfis devem existir no banco. Liste com `GET /v1/usuarios?perfil=COMERCIAL&ativo=true&page=1&pageSize=20`, consulte por id e edite nome/e-mail/perfil com PATCH. Ative/desative com POST em `/:id/ativar` e `/:id/desativar`. Usuários não são excluídos fisicamente. Não é possível desativar ou rebaixar o último administrador ativo. Auditoria e contrato completo em `src/modules/usuarios/OVERVIEW.md`; exemplos interativos em `/docs`.
+
+Testes: `npm run test:e2e -- test/usuarios/usuarios.e2e-spec.ts`, usando banco de testes (a suíte limpa tabelas).
