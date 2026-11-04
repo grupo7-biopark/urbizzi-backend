@@ -85,3 +85,7 @@ Medição local com uma planta do tamanho da real (9 fatias de 4404 x 3482 px, 1
 - Configuração: `PLANTAS_PROCESSAMENTO_ATIVO` (padrão `true`) e `PLANTAS_FILA_INTERVALO_MS` (padrão `5000`).
 - Exporta `PlantaService` (consumido por mapa na BE-33 para validar a existência da planta).
 - Não emite nem consome eventos.
+
+## Cópia de marcadores (BE-34)
+
+No multipart de `POST /v1/plantas`, envie `copiarMarcadores=true` para copiar os marcadores da planta ativa. O padrão é false. Sem origem ativa, a cópia retorna 404 e desfaz o envio. O upload usa as dimensões totais da grade, obtidas dos próprios arquivos; mudar a resolução mantendo a proporção preserva o estado de revisão. Uma proporção diferente exige revisar todos os marcadores copiados. A criação da versão, a cópia e sua auditoria são atômicas. A auditoria da nova planta informa origem, quantidade e mudança de proporção. A ativação continua explícita para versões PRONTAS e as versões anteriores mantêm seus próprios marcadores.

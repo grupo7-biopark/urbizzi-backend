@@ -19,7 +19,7 @@ Auditoria atômica CRIAR/MOVER/EXCLUIR com ids e coordenadas. Falha na auditoria
 
 Erros: 400 DADOS_INVALIDOS/COORDENADAS_INVALIDAS; 401 NAO_AUTENTICADO; 403 ACESSO_NEGADO; 404 PLANTA_NAO_ENCONTRADA/LOTE_NAO_ENCONTRADO/MARCADOR_NAO_ENCONTRADO; 409 MARCADOR_DUPLICADO.
 
-Exporta MarcadorService para futuros consumidores. BE-34 e BE-36 permanecem em suas issues.
+Exporta MarcadorService para futuros consumidores. BE-36 permanece em sua issue.
 
 ## Mapa interno (BE-35)
 
@@ -30,3 +30,7 @@ Planta contém só id, nome, versão, dimensões e URL/zoom/tamanho dos tiles. C
 Projeção SQL de leitura documentada em architecture.md, com uma consulta para página e total, sem N+1 e sem acessar dados de clientes. Cadastros excluídos e plantas inativas não aparecem. Ordem estável pelo UUID do marcador. MapaService exportado atende a consulta; marcadores paginados permitem percorrer milhares de lotes sem resposta ilimitada.
 
 BE-38: MapaService.consultarPublico reutiliza a projeção paginada com escopo recebido do serviço de links, mas devolve DTO público próprio com lista explícita de campos e valor somente autorizado. Não importa LinksPublicosModule; dependência segue em uma direção.
+
+## Revisão por versão (BE-34)
+
+Os marcadores incluem o booleano `revisar`. Marcadores novos e existentes na migração começam com false. Cada cópia recebe id próprio, preservando lote, x, y e eventuais revisões pendentes. Para confirmar a posição, Administrador ou Gestor chama `POST /v1/plantas/:plantaId/marcadores/:id/revisar` (200). A confirmação é idempotente e gera auditoria REVISAR na primeira mudança. O marcador precisa pertencer à planta indicada (404).
