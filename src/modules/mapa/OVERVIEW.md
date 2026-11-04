@@ -20,3 +20,11 @@ Auditoria atômica CRIAR/MOVER/EXCLUIR com ids e coordenadas. Falha na auditoria
 Erros: 400 DADOS_INVALIDOS/COORDENADAS_INVALIDAS; 401 NAO_AUTENTICADO; 403 ACESSO_NEGADO; 404 PLANTA_NAO_ENCONTRADA/LOTE_NAO_ENCONTRADO/MARCADOR_NAO_ENCONTRADO; 409 MARCADOR_DUPLICADO.
 
 Exporta MarcadorService para futuros consumidores. BE-34, BE-35 e BE-36 permanecem em suas issues.
+
+## Mapa interno (BE-35)
+
+GET /v1/mapa exige login, aceita loteamentoId, status separados por vírgula e page/pageSize. Responde { planta, marcadores: { data, meta } }. Sem planta ativa retorna 404 PLANTA_ATIVA_NAO_ENCONTRADA; entrada inválida 400 DADOS_INVALIDOS; sem login 401 NAO_AUTENTICADO. Cache-Control no-store garante atualização do status em cada consulta.
+
+Planta contém só id, nome, versão, dimensões e URL/zoom/tamanho dos tiles. Cada marcador traz ids, coordenadas, número, quadra, loteamento, área, valor decimal, status do lote e ações. Consulta só lê; Comercial reserva lotes disponíveis e vê a própria reserva; Admin/Gestor também bloqueiam/desbloqueiam e vendem quando há reserva ativa com proposta aprovada. Vendido não tem ação. A aprovação não vira status do lote (RN17). Esta lista orienta a UI; as ações serão revalidadas nos comandos correspondentes.
+
+Projeção SQL de leitura documentada em architecture.md, com uma consulta para página e total, sem N+1 e sem acessar dados de clientes. Cadastros excluídos e plantas inativas não aparecem. Ordem estável pelo UUID do marcador. MapaService exportado atende a consulta; marcadores paginados permitem percorrer milhares de lotes sem resposta ilimitada.
