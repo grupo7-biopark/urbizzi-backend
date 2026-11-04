@@ -83,5 +83,5 @@ Medição local com uma planta do tamanho da real (9 fatias de 4404 x 3482 px, 1
 
 - Importa `AuditoriaModule` (`AuditoriaService.registrar`) e `StorageModule` (contrato `Storage`, buckets `originais` e `tiles`).
 - Configuração: `PLANTAS_PROCESSAMENTO_ATIVO` (padrão `true`) e `PLANTAS_FILA_INTERVALO_MS` (padrão `5000`).
-- Exporta `PlantaService` (ainda sem consumidores; o módulo `mapa` vai usá-lo a partir da BE-33).
+- Exporta `PlantaService` (consumido por mapa na BE-33 para validar a existência da planta).
 - Não emite nem consome eventos.

@@ -89,6 +89,9 @@ export class PrismaLoteRepository implements LoteRepository {
     pagination: Pagination,
   ): Promise<Page<Lote>> {
     const where: Prisma.LoteWhereInput = {
+      ...(filtros.idsExcluir?.length
+        ? { id: { notIn: filtros.idsExcluir } }
+        : {}),
       deletedAt: null,
       ...(filtros.quadraId && { quadraId: filtros.quadraId }),
       ...(filtros.loteamentoId && {

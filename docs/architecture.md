@@ -52,7 +52,7 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar e expirar reservas | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22 |
 | `propostas` | `Proposta` | proposta, aprovação/rejeição, venda do lote | `reservas`, `loteamentos`, `configuracoes`, `auditoria` | BE-23 a BE-25 |
 | `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
-| `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos` | BE-33, BE-35, BE-36 |
+| `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria` | BE-33, BE-35, BE-36 |
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria` (mapa previsto na BE-38) | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 
@@ -750,3 +750,7 @@ Configurações exporta leitura tipada de prazos e usa cache local invalidado ap
 A consulta de auditoria BE-13 é uma projeção polimórfica de leitura: o adapter consulta o nome do autor e usa EXISTS de Reserva/Proposta para verificar o vendedor. Essa é uma exceção explícita de read model à leitura isolada de tabelas: não há escrita em tabelas alheias, uso de repositórios alheios, exposição de contatos ou importação de módulos que criaria ciclos. O service define o escopo do Comercial e o repositório aplica esse escopo junto à paginação no banco. A autoria do evento nunca comprova propriedade do recurso.
 
 Cada módulo documenta seus endpoints, códigos de erro e limites no OVERVIEW. Limite de renovações e endpoint público do mapa seguem em suas issues futuras; não são antecipados nestas entregas.
+
+### Marcadores (BE-33)
+
+MapaModule implementa os marcadores previstos no mapa de módulos e exporta MarcadorService. As rotas são aninhadas em plantas, mas pertencem a mapa. PlantaService e LoteService validam os recursos e LoteService.listExcluindo fornece lotes não removidos com exclusão de ids e paginação. Escritas de marcadores e auditoria são atômicas; o índice único existente impede duplicidade concorrente. Listagens são permitidas a todos os perfis internos; edição somente a Administrador/Gestor.

@@ -6,6 +6,7 @@ import { AuditoriaModule } from './modules/auditoria/auditoria.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { PlantasModule } from './modules/plantas/plantas.module.js';
 import { LoteamentosModule } from './modules/loteamentos/loteamentos.module.js';
+import { MapaModule } from './modules/mapa/mapa.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validate } from './config/env.validation.js';
@@ -14,6 +15,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
 
 @Module({
   imports: [
+    MapaModule,
     ConfigModule.forRoot({ isGlobal: true, cache: true, validate }),
     PrismaModule,
     HealthModule,
