@@ -1,3 +1,8 @@
+import { ScheduleModule } from '@nestjs/schedule';
+import { ExpiracaoReservaService } from './application/services/expiracao-reserva.service.js';
+import { EXPIRACAO_RESERVA_REPOSITORY } from './domain/repositories/expiracao-reserva.repository.interface.js';
+import { PrismaExpiracaoReservaRepository } from './infra/repositories/prisma-expiracao-reserva.repository.js';
+import { ExpiracaoReservasJob } from './infra/workers/expiracao-reservas.job.js';
 import { ReservaConsultaService } from './application/services/reserva-consulta.service.js';
 import { RESERVA_CONSULTA_REPOSITORY } from './domain/repositories/reserva-consulta.repository.interface.js';
 import { PrismaReservaConsultaRepository } from './infra/repositories/prisma-reserva-consulta.repository.js';
@@ -13,6 +18,7 @@ import { PrismaReservaRepository } from './infra/repositories/prisma-reserva.rep
 import { ReservasController } from './infra/controllers/reservas.controller.js';
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     LoteamentosModule,
     ClientesModule,
     ConfiguracoesModule,
@@ -21,6 +27,12 @@ import { ReservasController } from './infra/controllers/reservas.controller.js';
   controllers: [ReservasConsultaController, ReservasController],
   providers: [
     ReservaService,
+    ExpiracaoReservaService,
+    ExpiracaoReservasJob,
+    {
+      provide: EXPIRACAO_RESERVA_REPOSITORY,
+      useClass: PrismaExpiracaoReservaRepository,
+    },
     ReservaConsultaService,
     {
       provide: RESERVA_CONSULTA_REPOSITORY,

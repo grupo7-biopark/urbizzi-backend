@@ -15,6 +15,15 @@ describe('Reserva', () => {
       ),
     ).toBe(0);
   });
+  it('expira exatamente no vencimento e rejeita antecipação ou repetição', () => {
+    const r = Reserva.create(input, 1, new Date('2026-01-01'));
+    expect(() => r.expirar(new Date('2026-01-01'))).toThrow(
+      'A reserva não está ativa e vencida',
+    );
+    r.expirar(new Date('2026-01-02'));
+    expect(r.dados.status).toBe('EXPIRADA');
+    expect(() => r.expirar(new Date('2026-01-03'))).toThrow();
+  });
   it.each([0, -1, 1.5, NaN, Number.MAX_SAFE_INTEGER])(
     'rejeita prazo inválido %s',
     (dias) => {

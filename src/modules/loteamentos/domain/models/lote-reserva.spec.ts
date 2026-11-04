@@ -14,6 +14,15 @@ describe('Lote: reserva', () => {
     expect(l.teveReserva).toBe(true);
     expect(() => l.assertPodeExcluir()).toThrow();
   });
+  it('libera somente reservado e preserva o histórico permanente', () => {
+    const l = criar();
+    expect(() => l.liberarReserva()).toThrow('O lote não está reservado');
+    l.reservar();
+    l.liberarReserva();
+    expect(l.status).toBe('DISPONIVEL');
+    expect(l.teveReserva).toBe(true);
+    expect(() => l.assertPodeExcluir()).toThrow('histórico de reservas');
+  });
   it.each(['RESERVADO', 'BLOQUEADO', 'VENDIDO'] as const)(
     'não reserva lote %s',
     (status) => {
