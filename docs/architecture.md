@@ -53,7 +53,7 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `propostas` | `Proposta` | proposta, aprovação/rejeição, venda do lote | `reservas`, `loteamentos`, `configuracoes`, `auditoria` | BE-23 a BE-25 |
 | `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
 | `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria` | BE-33, BE-35, BE-36 |
-| `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria` (mapa previsto na BE-38) | BE-37, BE-38 |
+| `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria`, `mapa` | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 
 Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em [storage.md](storage.md). Contrato `Storage` e token `STORAGE` ficam em `shared/application/storage`, com helper para geração de chaves. Os módulos consumidores importam `StorageModule` e injetam o contrato na camada application, sem importar AWS SDK. Esta infraestrutura técnica não possui tabela nem endpoints próprios.
@@ -761,3 +761,7 @@ UsuariosModule importa AuditoriaModule e mantém UsuarioService exportado para B
 ### Consulta do mapa (BE-35)
 
 A leitura do mapa é uma projeção explícita no adapter PrismaMapaConsultaRepository: uma consulta SQL parametrizada une marcadores aos cadastros e à reserva ativa, com EXISTS de proposta aprovada apenas para calcular ações. Como na projeção da auditoria, esta é uma exceção de leitura às tabelas por módulo. Não escreve em tabelas alheias nem importa repositórios/entidades de outros módulos. A planta ativa vem de PlantaService exportado. Não há ciclos ou consultas por marcador; total e página compartilham um snapshot. Campos monetários são texto decimal. Dados de cliente, vendedor e conteúdo/status de proposta não saem na resposta. MapaService calcula ações com policy pura; elas orientam a UI e não dispensam validação nos futuros endpoints de comando.
+
+### Mapa público (BE-38)
+
+LinksPublicosModule importa MapaModule e usa apenas MapaService exportado. MapaPublicoService resolve o token por LinkPublicoService.registrarAcesso (validação de ativo e contador atômicos) e aplica o escopo exclusivamente a partir do link. O adapter de consulta do mapa é reutilizado; MapaService.consultarPublico usa DTO com lista explícita de campos, sem valores não autorizados ou dados de reserva/proposta/vendedor. O contrato Swagger da rota pública também é explícito, sem herança de DTOs internos de outro módulo. Contato geral vem da configuração; não consulta usuários para expor contatos pessoais. Nenhuma escrita em tabela alheia, dependência circular ou migration nova.

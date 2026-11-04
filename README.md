@@ -61,6 +61,7 @@ Error: Variáveis de ambiente inválidas:
 | `SMTP_USER` | não | - | Usuário do provedor SMTP |
 | `SMTP_PASSWORD` | não | - | Senha do provedor SMTP |
 | `SMTP_FROM` | não | `nao-responda@urbizzi.local` | Remetente de recuperação |
+| `PUBLICO_CONTATO_COMERCIAL` | não | Orientação para falar com quem compartilhou o link | Canal comercial geral publicado no mapa (URL, e-mail ou texto); não usa dados pessoais dos usuários |
 | `PASSWORD_RESET_URL` | não | `http://localhost:5173/reset-password` | Página do frontend que recebe o token |
 | `JWT_SECRET` | sim | - | Segredo HS256 com no mínimo 32 caracteres |
 | `JWT_EXPIRES_IN` | não | `900` | Validade do access token em segundos (60 a 3600) |

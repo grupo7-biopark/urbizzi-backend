@@ -118,7 +118,7 @@ Ao implementar cada módulo, a coluna "Perfis" da tabela de endpoints do `OVERVI
 
 ### Rotas públicas
 
-- O mapa público (`/v1/links-publicos/:token/mapa`, BE-38) é `@Public()` e valida o token do link (ativo e não expirado). Ele expõe **só** o necessário para o mapa: identificação do lote, status e geometria/marcador. Nunca dados de cliente, vendedor, reserva ou proposta.
+- O mapa público (`/v1/publico/:token`, BE-38) é `@Public()` e valida o token ativo do link (o model atual não tem expiração). Ele expõe **só** o necessário para o mapa: identificação do lote, status e geometria/marcador. Nunca dados de cliente, vendedor, reserva ou proposta.
 - Os tiles da planta (`/v1/plantas/:id/tiles/:z/:x/:y.webp`, BE-32) são `@Public()`: o `<img>` que o Leaflet usa para carregar cada tile não envia o header `Authorization`, e o mapa público usa os mesmos tiles. A rota só serve plantas `PRONTA` e valida as coordenadas contra a pirâmide. O id da planta é um UUID aleatório. A planta é material comercial, sem dados pessoais. Os demais dados da planta (`GET /v1/plantas*`) continuam exigindo login.
 - Tokens de link público: aleatórios (`randomBytes(32)` em base64url), nunca sequenciais nem derivados do id.
 
@@ -165,3 +165,7 @@ Login e refresh são serializados com a redefinição pela linha do usuário. O 
 ## Gestão administrativa de usuários (BE-10)
 
 Todas as rotas de usuários exigem Administrador. Senha inicial é obrigatória na criação e armazenada com Argon2id; edição não altera senha. Criação, edição de perfil/dados e mudanças de ativo são auditadas atomicamente, sem snapshots com dados pessoais. O último administrador ativo não pode ser desativado nem rebaixado, inclusive em concorrência. Escritas administrativas são serializadas por bloqueio transacional antes da contagem e do bloqueio da linha de usuário compartilhado com a autenticação. Não há exclusão física.
+
+### Consulta pública BE-38
+
+GET /v1/publico/:token aceita apenas paginação e usa o escopo salvo no link. Não expõe ações, dados de clientes, vendedores ou propostas. Valor é omitido quando não autorizado no cadastro. O contato geral é configurável e nunca é obtido do perfil pessoal do vendedor. Limite de 60 acessos/IP/minuto, Cache-Control no-store e Referrer-Policy no-referrer. Respostas de erro mascaram o token no path; logs de erro inesperado da rota pública são genéricos. Infraestrutura de proxy/observabilidade deve omitir ou mascarar este segmento de URL nos access logs e usar HTTPS em produção.

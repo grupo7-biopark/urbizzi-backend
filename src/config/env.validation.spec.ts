@@ -10,6 +10,8 @@ describe('validate (env)', () => {
 
   it('aplica valores padrão quando variáveis opcionais estão ausentes', () => {
     expect(validate(validEnv)).toEqual({
+      PUBLICO_CONTATO_COMERCIAL:
+        'Solicite atendimento à equipe que compartilhou este link.',
       SMTP_HOST: 'localhost',
       SMTP_PORT: 1025,
       SMTP_SECURE: false,
@@ -32,6 +34,21 @@ describe('validate (env)', () => {
       PORT: 3000,
       DATABASE_URL: validEnv.DATABASE_URL,
     });
+  });
+
+  it('lê contato comercial e rejeita texto vazio', () => {
+    expect(
+      validate({
+        ...validEnv,
+        PUBLICO_CONTATO_COMERCIAL: ' https://exemplo.com/contato ',
+      }).PUBLICO_CONTATO_COMERCIAL,
+    ).toBe('https://exemplo.com/contato');
+    expect(() =>
+      validate({ ...validEnv, PUBLICO_CONTATO_COMERCIAL: '   ' }),
+    ).toThrow();
+    expect(validate(validEnv).PUBLICO_CONTATO_COMERCIAL).toContain(
+      'equipe que compartilhou',
+    );
   });
 
   it.each([

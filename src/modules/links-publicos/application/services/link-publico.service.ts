@@ -96,7 +96,7 @@ export class LinkPublicoService {
     });
     return link.dados;
   }
-  /** Uso futuro pelo mapa público: valida ativo e incrementa atomicamente. */
+  /** Usado pelo mapa público: valida ativo e incrementa atomicamente. */
   async registrarAcesso(token: string): Promise<LinkPublicoDto> {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token))
       throw new NotFoundError('LINK_NAO_ENCONTRADO', 'Link não encontrado');
