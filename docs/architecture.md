@@ -769,3 +769,7 @@ LinksPublicosModule importa MapaModule e usa apenas MapaService exportado. MapaP
 ### Criar reserva (BE-19)
 
 ReservasModule coordena serviços exportados de clientes, loteamentos, configurações e auditoria. Somente o repositório de reservas escreve reservas; somente LoteService muda o lote. Leitura de lote com transação usa FOR UPDATE, compartilhado por reserva/exclusão/bloqueio. Ordem: cliente, lote, configuração, criação da reserva e auditoria. Sem I/O externo ou dados pessoais em auditoria. Nenhuma migration: índice parcial e tabelas já existem.
+
+### Listagem de reservas (BE-22)
+
+PrismaReservaConsultaRepository é um read model explícito, como mapa/auditoria: une reservas, lote/quadra/loteamento, somente id/nome do cliente e resumo da última proposta. Exceção de leitura às tabelas por módulo, sem escritas ou importação de repositórios/entidades alheios. Página e total vêm de uma consulta parametrizada. ReservaConsultaService restringe o vendedor antes de consultar. O controller de listagens registra /minhas antes da rota /:id; os dois são documentados no Swagger. As escritas de reserva continuam isoladas no adapter próprio.
