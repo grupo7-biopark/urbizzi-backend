@@ -757,3 +757,7 @@ MapaModule implementa os marcadores previstos no mapa de módulos e exporta Marc
 ### Gestão de usuários (BE-10)
 
 UsuariosModule importa AuditoriaModule e mantém UsuarioService exportado para BE-07/BE-08. GestaoUsuarioService atende as rotas administrativas e usa UsuarioRepository para consultas/bloqueios existentes e GestaoUsuarioRepository para persistência/listagem administrativa. Ambos os adapters acessam somente as tabelas do próprio módulo. Escritas administrativas adquirem um bloqueio advisory transacional antes do bloqueio da linha do usuário, garantindo a proteção do último administrador em desativações e rebaixamentos concorrentes. Hash da senha inicial é calculado antes da transação; a auditoria participa do mesmo commit.
+
+### Consulta do mapa (BE-35)
+
+A leitura do mapa é uma projeção explícita no adapter PrismaMapaConsultaRepository: uma consulta SQL parametrizada une marcadores aos cadastros e à reserva ativa, com EXISTS de proposta aprovada apenas para calcular ações. Como na projeção da auditoria, esta é uma exceção de leitura às tabelas por módulo. Não escreve em tabelas alheias nem importa repositórios/entidades de outros módulos. A planta ativa vem de PlantaService exportado. Não há ciclos ou consultas por marcador; total e página compartilham um snapshot. Campos monetários são texto decimal. Dados de cliente, vendedor e conteúdo/status de proposta não saem na resposta. MapaService calcula ações com policy pura; elas orientam a UI e não dispensam validação nos futuros endpoints de comando.

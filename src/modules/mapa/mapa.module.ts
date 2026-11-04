@@ -1,3 +1,7 @@
+import { MapaService } from './application/services/mapa.service.js';
+import { MAPA_CONSULTA_REPOSITORY } from './domain/repositories/mapa-consulta.repository.interface.js';
+import { PrismaMapaConsultaRepository } from './infra/repositories/prisma-mapa-consulta.repository.js';
+import { MapaController } from './infra/controllers/mapa.controller.js';
 import { Module } from '@nestjs/common';
 import { PlantasModule } from '../plantas/plantas.module.js';
 import { LoteamentosModule } from '../loteamentos/loteamentos.module.js';
@@ -8,11 +12,16 @@ import { PrismaMarcadorRepository } from './infra/repositories/prisma-marcador.r
 import { MarcadoresController } from './infra/controllers/marcadores.controller.js';
 @Module({
   imports: [PlantasModule, LoteamentosModule, AuditoriaModule],
-  controllers: [MarcadoresController],
+  controllers: [MarcadoresController, MapaController],
   providers: [
     MarcadorService,
+    MapaService,
+    {
+      provide: MAPA_CONSULTA_REPOSITORY,
+      useClass: PrismaMapaConsultaRepository,
+    },
     { provide: MARCADOR_REPOSITORY, useClass: PrismaMarcadorRepository },
   ],
-  exports: [MarcadorService],
+  exports: [MarcadorService, MapaService],
 })
 export class MapaModule {}
