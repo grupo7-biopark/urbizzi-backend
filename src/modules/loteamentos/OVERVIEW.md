@@ -91,3 +91,5 @@ POST /v1/lotes/:id/bloquear exige motivo não vazio, permite somente DISPONIVEL 
 Escrita condicional no status anterior evita sobrescrever reserva/venda/bloqueio concorrente e gera LOTE_STATUS_ALTERADO em corrida perdida. O CRUD de lotes continua sem alterar status. O fluxo de reserva BE-19 deverá exigir DISPONIVEL, logo lotes BLOQUEADO não são elegíveis. Não se antecipa endpoint de reserva nesta issue. Nenhuma migration nova além das dependências BE-14/BE-16.
 
 BE-33: LoteService.listExcluindo(idsExcluir, query) exporta consulta paginada de lotes existentes, com filtro opcional por loteamento e exclusão de ids fornecidos pelo módulo mapa. O repositório de loteamentos não consulta a tabela de marcadores.
+
+BE-19: LoteService.reservar(id, usuarioId, tx) valida DISPONIVEL, marca teveReserva permanentemente e audita. Leituras de lote com tx bloqueiam a linha até o commit, incluindo exclusão, bloqueio e reserva, evitando excluir um lote que acabou de ser reservado.

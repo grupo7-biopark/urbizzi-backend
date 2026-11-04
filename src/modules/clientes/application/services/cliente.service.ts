@@ -1,3 +1,4 @@
+import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ConflictError,
@@ -39,6 +40,13 @@ export class ClienteService {
       );
     });
     return ClienteDto.from(cliente);
+  }
+  async validarExistencia(id: string, tx: PrismaTransaction): Promise<void> {
+    if (!(await this.repository.findById(id, tx)))
+      throw new NotFoundError(
+        'CLIENTE_NAO_ENCONTRADO',
+        'Cliente não encontrado',
+      );
   }
   async findById(id: string): Promise<ClienteDto> {
     return ClienteDto.from(await this.getOrFail(id));

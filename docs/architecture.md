@@ -765,3 +765,7 @@ A leitura do mapa é uma projeção explícita no adapter PrismaMapaConsultaRepo
 ### Mapa público (BE-38)
 
 LinksPublicosModule importa MapaModule e usa apenas MapaService exportado. MapaPublicoService resolve o token por LinkPublicoService.registrarAcesso (validação de ativo e contador atômicos) e aplica o escopo exclusivamente a partir do link. O adapter de consulta do mapa é reutilizado; MapaService.consultarPublico usa DTO com lista explícita de campos, sem valores não autorizados ou dados de reserva/proposta/vendedor. O contrato Swagger da rota pública também é explícito, sem herança de DTOs internos de outro módulo. Contato geral vem da configuração; não consulta usuários para expor contatos pessoais. Nenhuma escrita em tabela alheia, dependência circular ou migration nova.
+
+### Criar reserva (BE-19)
+
+ReservasModule coordena serviços exportados de clientes, loteamentos, configurações e auditoria. Somente o repositório de reservas escreve reservas; somente LoteService muda o lote. Leitura de lote com transação usa FOR UPDATE, compartilhado por reserva/exclusão/bloqueio. Ordem: cliente, lote, configuração, criação da reserva e auditoria. Sem I/O externo ou dados pessoais em auditoria. Nenhuma migration: índice parcial e tabelas já existem.
