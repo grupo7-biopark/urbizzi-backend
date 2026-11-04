@@ -1,3 +1,8 @@
+import {
+  MarcadorPublicoDto,
+  type MapaPublicoDadosDto,
+} from '../dto/mapa-publico-dados.dto.js';
+import type { FiltrosMapa } from '../../domain/repositories/mapa-consulta.repository.interface.js';
 import { Inject, Injectable } from '@nestjs/common';
 import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
 import { PaginatedDto } from '../../../../shared/application/dto/paginated.dto.js';
@@ -33,6 +38,20 @@ export class MapaService {
           items: pagina.items.map((item) =>
             MarcadorMapaDto.from(item, acoesMapa(item, usuario)),
           ),
+          total: pagina.total,
+        },
+        query,
+      ),
+    };
+  }
+  async consultarPublico(query: FiltrosMapa): Promise<MapaPublicoDadosDto> {
+    const planta = await this.plantaAtiva();
+    const pagina = await this.repository.list(planta.id, query);
+    return {
+      planta,
+      marcadores: PaginatedDto.of(
+        {
+          items: pagina.items.map(MarcadorPublicoDto.from),
           total: pagina.total,
         },
         query,

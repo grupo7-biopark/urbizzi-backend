@@ -69,15 +69,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const error = this.resolve(exception);
 
+    const url: string = httpAdapter.getRequestUrl(ctx.getRequest());
+    const publico = /^\/v\d+\/publico(?:\/|$)/.test(url);
+    if (
+      publico &&
+      error.statusCode === 404 &&
+      !(exception instanceof DomainError)
+    ) {
+      error.message = 'Recurso não encontrado';
+    }
     if (error.statusCode >= 500) {
       this.logger.error(
-        exception instanceof Error ? exception.stack : String(exception),
+        publico
+          ? 'Falha ao consultar mapa público'
+          : exception instanceof Error
+            ? exception.stack
+            : String(exception),
       );
     }
 
     const body: ErrorResponseDto = {
       ...error,
-      path: httpAdapter.getRequestUrl(ctx.getRequest()),
+      path: publico ? url.replace(/(\/publico)(?:\/.*)?$/, '$1/:token') : url,
       timestamp: new Date().toISOString(),
     };
     httpAdapter.reply(ctx.getResponse(), body, error.statusCode);

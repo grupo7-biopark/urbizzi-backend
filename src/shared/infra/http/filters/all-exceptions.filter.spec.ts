@@ -1,5 +1,6 @@
 import {
   ArgumentsHost,
+  Logger,
   ForbiddenException,
   NotFoundException,
   PayloadTooLargeException,
@@ -35,6 +36,43 @@ describe('AllExceptionsFilter', () => {
     const [, body, status] = reply.mock.calls[0];
     return { body, status };
   }
+
+  it('mascara token no path e não registra exceções internas da rota pública', () => {
+    const segredo = 'token-secreto';
+    const publico = new AllExceptionsFilter({
+      httpAdapter: {
+        reply,
+        getRequestUrl: () => '/v1/publico/' + segredo + '?page=1',
+      },
+    } as unknown as HttpAdapterHost);
+    const log = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    try {
+      publico.catch(new Error(segredo), host);
+      expect(reply.mock.calls.at(-1)?.[1].path).toBe('/v1/publico/:token');
+      expect(JSON.stringify(reply.mock.calls.at(-1))).not.toContain(segredo);
+      expect(log).toHaveBeenLastCalledWith('Falha ao consultar mapa público');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('não reflete a URL secreta na mensagem de uma rota pública inexistente', () => {
+    const publico = new AllExceptionsFilter({
+      httpAdapter: {
+        reply,
+        getRequestUrl: () => '/v1/publico/segredo/inexistente',
+      },
+    } as unknown as HttpAdapterHost);
+    publico.catch(
+      new NotFoundException('Cannot GET /v1/publico/segredo/inexistente'),
+      host,
+    );
+    const body = reply.mock.calls.at(-1)?.[1];
+    expect(body.message).toBe('Recurso não encontrado');
+    expect(JSON.stringify(body)).not.toContain('segredo');
+  });
 
   it.each([
     [

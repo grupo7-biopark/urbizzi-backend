@@ -59,6 +59,30 @@ describe('MapaService', () => {
       [],
     );
   });
+  it('consulta pública aplica escopo e remove valores não autorizados', async () => {
+    repository.list.mockResolvedValue({
+      total: 1,
+      items: [
+        {
+          id: 'm',
+          loteId: 'l',
+          status: 'DISPONIVEL',
+          valor: '100.00',
+          exibirValorPublico: false,
+        } as ItemMapa,
+      ],
+    });
+    const result = await service.consultarPublico({
+      ...query,
+      loteamentoId: 'e',
+    });
+    expect(repository.list).toHaveBeenCalledWith('p', {
+      ...query,
+      loteamentoId: 'e',
+    });
+    expect(result.marcadores.data[0]).not.toHaveProperty('valor');
+    expect(result.marcadores.data[0]).not.toHaveProperty('acoes');
+  });
   it('propaga ausência de planta ativa sem consultar marcadores', async () => {
     plantas.ativa.mockRejectedValue(
       new NotFoundError('PLANTA_ATIVA_NAO_ENCONTRADA', 'Sem planta'),

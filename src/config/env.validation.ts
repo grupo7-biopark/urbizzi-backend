@@ -11,6 +11,12 @@ const bucket = z
   .regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/);
 
 export const envSchema = z.object({
+  PUBLICO_CONTATO_COMERCIAL: z
+    .string()
+    .trim()
+    .min(1)
+    .max(500)
+    .default('Solicite atendimento à equipe que compartilhou este link.'),
   SMTP_HOST: z.string().min(1).default('localhost'),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
   SMTP_SECURE: z
