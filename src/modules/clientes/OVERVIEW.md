@@ -7,3 +7,5 @@ CPF/CNPJ numéricos são normalizados, verificados pelos dígitos e rejeitam seq
 Busca por q aceita nome parcial sem diferenciar caixa/acentos e documento com ou sem formatação. Listagem paginada retorna apenas id/nome; contatos e documento ficam no detalhe. Busca usa extensão PostgreSQL unaccent (migration nova), parâmetros SQL e paginação estável por data/id em transação de leitura repetível.
 
 Exporta ClienteService. Persistência e auditoria são atômicas; auditoria mascara explicitamente nome, documento, contatos e observações, registrando campos alterados sem armazenar dados pessoais. A tabela clientes é acessada apenas pelo seu repositório. Histórico de reservas/propostas fica para BE-28. O contrato atual segue o documento numérico do schema; CNPJ alfanumérico exige mudança de escopo/schema.
+
+BE-19: ClienteService.validarExistencia(id, tx) valida cadastro não removido na transação do consumidor e não devolve dados pessoais.

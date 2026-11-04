@@ -37,7 +37,10 @@ export class PrismaLoteRepository implements LoteRepository {
   ): Promise<void> {
     const result = await tx.lote.updateMany({
       where: { id, status: esperado, deletedAt: null },
-      data: { status: novo },
+      data: {
+        status: novo,
+        ...(novo === 'RESERVADO' ? { teveReserva: true } : {}),
+      },
     });
     if (result.count !== 1)
       throw new ConflictError(
@@ -48,6 +51,8 @@ export class PrismaLoteRepository implements LoteRepository {
 
   async findById(id: string, tx?: PrismaTransaction): Promise<Lote | null> {
     const db = tx ?? this.prisma;
+    if (tx)
+      await tx.$queryRaw`SELECT id FROM lotes WHERE id = ${id}::uuid FOR UPDATE`;
     const row = await db.lote.findFirst({
       where: { id, deletedAt: null },
       include: INCLUDE_LOTEAMENTO,

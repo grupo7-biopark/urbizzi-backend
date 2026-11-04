@@ -1,0 +1,7 @@
+# Reservas (BE-19)
+
+Dono de Reserva e ReservaRenovacao. Importa LoteamentosModule, ClientesModule, ConfiguracoesModule e AuditoriaModule; exporta ReservaService. POST /v1/reservas recebe loteId/clienteId, vincula o usuário logado como vendedor e exige ADMINISTRADOR/GESTOR/COMERCIAL. GET /v1/reservas/:id tem os mesmos perfis; Comercial só consulta reserva própria. Retorna prazo e tempoRestanteSegundos limitado a zero.
+
+Prazo em dias corridos (24 horas UTC por dia), obtido de ConfiguracaoService dentro da transação; padrão sete dias. LoteService bloqueia a linha ao ler em transação, valida DISPONIVEL, atualiza condicionalmente RESERVADO e teveReserva=true. O mesmo bloqueio protege exclusão/bloqueio concorrentes. Cliente é validado por serviço exportado. Reserva, lote e as duas auditorias compartilham o commit; snapshots não recebem dados pessoais de cliente. Índice parcial existente é a segunda proteção para uma única reserva ATIVA por lote; colisão retorna 409 RESERVA_LOTE_JA_RESERVADO.
+
+Erros: 400 DADOS_INVALIDOS, 401 NAO_AUTENTICADO, 403 ACESSO_NEGADO, 404 RESERVA_NAO_ENCONTRADA/LOTE_NAO_ENCONTRADO/CLIENTE_NAO_ENCONTRADO, 409 LOTE_NAO_DISPONIVEL/LOTE_STATUS_ALTERADO/RESERVA_LOTE_JA_RESERVADO, 422 CONFIGURACAO_INVALIDA. Sem migration/dependência nova. Renovação, cancelamento, expiração e listagem seguem nas respectivas issues.

@@ -178,6 +178,19 @@ export class Lote {
     this.props = { ...this.props, status: 'DISPONIVEL', updatedAt: new Date() };
   }
 
+  reservar(): void {
+    if (this.props.status !== 'DISPONIVEL')
+      throw new ConflictError(
+        'LOTE_NAO_DISPONIVEL',
+        'Só é possível reservar um lote disponível',
+      );
+    this.props = {
+      ...this.props,
+      status: 'RESERVADO',
+      teveReserva: true,
+      updatedAt: new Date(),
+    };
+  }
   /** Só lote DISPONIVEL e que nunca foi reservado pode ser excluído. */
   assertPodeExcluir(): void {
     if (this.props.status !== 'DISPONIVEL') {

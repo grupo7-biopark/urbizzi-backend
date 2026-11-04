@@ -1,3 +1,4 @@
+import { ReservasModule } from './modules/reservas/reservas.module.js';
 import { LinksPublicosModule } from './modules/links-publicos/links-publicos.module.js';
 import { ClientesModule } from './modules/clientes/clientes.module.js';
 import { ConfiguracoesModule } from './modules/configuracoes/configuracoes.module.js';
@@ -16,6 +17,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
 @Module({
   imports: [
     MapaModule,
+    ReservasModule,
     ConfigModule.forRoot({ isGlobal: true, cache: true, validate }),
     PrismaModule,
     HealthModule,
