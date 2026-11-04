@@ -750,3 +750,7 @@ Configurações exporta leitura tipada de prazos e usa cache local invalidado ap
 A consulta de auditoria BE-13 é uma projeção polimórfica de leitura: o adapter consulta o nome do autor e usa EXISTS de Reserva/Proposta para verificar o vendedor. Essa é uma exceção explícita de read model à leitura isolada de tabelas: não há escrita em tabelas alheias, uso de repositórios alheios, exposição de contatos ou importação de módulos que criaria ciclos. O service define o escopo do Comercial e o repositório aplica esse escopo junto à paginação no banco. A autoria do evento nunca comprova propriedade do recurso.
 
 Cada módulo documenta seus endpoints, códigos de erro e limites no OVERVIEW. Limite de renovações e endpoint público do mapa seguem em suas issues futuras; não são antecipados nestas entregas.
+
+### Gestão de usuários (BE-10)
+
+UsuariosModule importa AuditoriaModule e mantém UsuarioService exportado para BE-07/BE-08. GestaoUsuarioService atende as rotas administrativas e usa UsuarioRepository para consultas/bloqueios existentes e GestaoUsuarioRepository para persistência/listagem administrativa. Ambos os adapters acessam somente as tabelas do próprio módulo. Escritas administrativas adquirem um bloqueio advisory transacional antes do bloqueio da linha do usuário, garantindo a proteção do último administrador em desativações e rebaixamentos concorrentes. Hash da senha inicial é calculado antes da transação; a auditoria participa do mesmo commit.
