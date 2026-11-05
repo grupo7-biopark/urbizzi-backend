@@ -10,10 +10,12 @@ import { MarcadorService } from './application/services/marcador.service.js';
 import { MARCADOR_REPOSITORY } from './domain/repositories/marcador.repository.interface.js';
 import { PrismaMarcadorRepository } from './infra/repositories/prisma-marcador.repository.js';
 import { MarcadoresController } from './infra/controllers/marcadores.controller.js';
+import { MapaEventosService } from './application/services/mapa-eventos.service.js';
 @Module({
   imports: [PlantasModule, LoteamentosModule, AuditoriaModule],
   controllers: [MarcadoresController, MapaController],
   providers: [
+    MapaEventosService,
     MarcadorService,
     MapaService,
     {
@@ -22,6 +24,6 @@ import { MarcadoresController } from './infra/controllers/marcadores.controller.
     },
     { provide: MARCADOR_REPOSITORY, useClass: PrismaMarcadorRepository },
   ],
-  exports: [MarcadorService, MapaService],
+  exports: [MapaEventosService, MarcadorService, MapaService],
 })
 export class MapaModule {}
