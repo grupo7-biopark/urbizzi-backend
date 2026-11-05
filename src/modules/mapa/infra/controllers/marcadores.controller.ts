@@ -97,6 +97,19 @@ export class MarcadoresController {
   ): Promise<MarcadorDto> {
     return this.service.mover(plantaId, id, dto, ator.id);
   }
+  /** Confirma a revisão da posição nesta versão */
+  @Post('marcadores/:id/revisar')
+  @HttpCode(200)
+  @Perfis('ADMINISTRADOR', 'GESTOR')
+  @ApiOkResponse({ type: MarcadorDto })
+  @ApiErrorResponses(400, 401, 403, 404)
+  revisar(
+    @Param('plantaId', ParseUUIDPipe) plantaId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() ator: UsuarioAutenticado,
+  ): Promise<MarcadorDto> {
+    return this.service.revisar(plantaId, id, ator.id);
+  }
   /** Remove um marcador */
   @Delete('marcadores/:id')
   @HttpCode(204)

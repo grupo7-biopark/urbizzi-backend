@@ -57,6 +57,9 @@ function setup(metadados: Record<string, MetadadosImagem | null> = {}) {
     storage,
     tx as unknown as TransactionManager,
     auditoria as unknown as AuditoriaService,
+    {
+      copiar: vi.fn(),
+    } as unknown as import('../../../mapa/application/services/copia-marcadores.service.js').CopiaMarcadoresService,
   );
   return { service, repository, processador, storage, auditoria };
 }
