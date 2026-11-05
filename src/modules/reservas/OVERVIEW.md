@@ -21,3 +21,7 @@ Somente ATIVA com vencimento <= agora e sem proposta APROVADA. Cada candidata te
 Projeção de elegibilidade só lê a existência de aprovação em propostas, exceção documentada de leitura; nunca altera propostas. Novos comandos de renovação/cancelamento/aprovação deverão bloquear primeiro a mesma reserva pelo serviço exportado (ReservaService.findById(id, usuario, tx)), revalidar estado e executar todas as escritas no mesmo tx. Ordem de bloqueio desses comandos: reserva, lote; criação de reserva só bloqueia lote antes de inserir uma nova reserva.
 
 Logs contêm somente quantidades e erros genéricos. RESERVA_NAO_VENCIDA protege domínio contra expiração antecipada/repetida. A dependência @nestjs/schedule é a ferramenta pedida pela issue; sem nova tabela/migration/variável de ambiente.
+
+## Renovação e cancelamento (BE-20)
+
+As rotas POST /v1/reservas/:id/renovar e /cancelar bloqueiam a reserva antes de alterá-la. A renovação soma o prazo vigente ao vencimento anterior e respeita a chave opcional limite_renovacoes. GET /v1/reservas/:id/renovacoes expõe o histórico paginado. Cancelar exige motivo e, se houver proposta em análise ou aprovada, confirmar=true. As propostas são encerradas como REJEITADA, com motivo de cancelamento. Reserva, lote, propostas e auditoria são atualizados na mesma transação. Enquanto o módulo de propostas não existe na main, seu encerramento é persistido no repositório de reservas.

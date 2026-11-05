@@ -8,6 +8,79 @@ import type { ReservaRepository } from '../../domain/repositories/reserva.reposi
 @Injectable()
 export class PrismaReservaRepository implements ReservaRepository {
   constructor(private readonly prisma: PrismaService) {}
+  async renovar(
+    reserva: Reserva,
+    anterior: Date,
+    usuarioId: string,
+    tx: PrismaTransaction,
+  ) {
+    const { id, dataVencimento } = reserva.dados;
+    await tx.reserva.update({ where: { id }, data: { dataVencimento } });
+    await tx.reservaRenovacao.create({
+      data: {
+        reservaId: id,
+        usuarioId,
+        vencimentoAnterior: anterior,
+        vencimentoNovo: dataVencimento,
+      },
+    });
+  }
+
+  async listarRenovacoes(id: string, skip: number, take: number) {
+    const where = { reservaId: id };
+    const [items, total] = await this.prisma.$transaction(
+      [
+        this.prisma.reservaRenovacao.findMany({
+          where,
+          skip,
+          take,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          omit: { reservaId: true },
+        }),
+        this.prisma.reservaRenovacao.count({ where }),
+      ],
+      { isolationLevel: 'RepeatableRead' },
+    );
+    return { items, total };
+  }
+
+  contarRenovacoes(id: string, tx: PrismaTransaction) {
+    return tx.reservaRenovacao.count({ where: { reservaId: id } });
+  }
+
+  async cancelar(
+    id: string,
+    usuarioId: string,
+    confirmar: boolean,
+    tx: PrismaTransaction,
+  ) {
+    const where = {
+      reservaId: id,
+      status: {
+        in: ['EM_ANALISE', 'APROVADA'] as ('EM_ANALISE' | 'APROVADA')[],
+      },
+    };
+    if (!confirmar && (await tx.proposta.count({ where })))
+      throw new ConflictError(
+        'CONFIRMACAO_CANCELAMENTO_NECESSARIA',
+        'Confirme o encerramento das propostas da reserva',
+      );
+    const propostas = confirmar
+      ? await tx.proposta.updateManyAndReturn({
+          where,
+          data: {
+            status: 'REJEITADA',
+            decididoPorId: usuarioId,
+            dataDecisao: new Date(),
+            motivoDecisao: 'Reserva cancelada',
+          },
+          select: { id: true },
+        })
+      : [];
+    await tx.reserva.update({ where: { id }, data: { status: 'CANCELADA' } });
+    return propostas.map(({ id }) => id);
+  }
+
   async create(reserva: Reserva, tx: PrismaTransaction): Promise<void> {
     try {
       await tx.reserva.create({ data: reserva.dados });

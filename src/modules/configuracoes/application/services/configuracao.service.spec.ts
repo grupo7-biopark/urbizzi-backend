@@ -4,7 +4,12 @@ import type { AuditoriaService } from '../../../auditoria/application/services/a
 import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 describe('ConfiguracaoService', () => {
   const tx = {} as PrismaTransaction;
-  const repository = { read: vi.fn(), set: vi.fn(), lock: vi.fn() };
+  const repository = {
+    read: vi.fn(),
+    readLimiteRenovacoes: vi.fn(),
+    set: vi.fn(),
+    lock: vi.fn(),
+  };
   const audit = { registrar: vi.fn() };
   let service: ConfiguracaoService;
   beforeEach(() => {
