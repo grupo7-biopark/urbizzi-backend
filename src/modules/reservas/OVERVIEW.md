@@ -21,3 +21,5 @@ Somente ATIVA com vencimento <= agora e sem proposta APROVADA. Cada candidata te
 Projeção de elegibilidade só lê a existência de aprovação em propostas, exceção documentada de leitura; nunca altera propostas. Novos comandos de renovação/cancelamento/aprovação deverão bloquear primeiro a mesma reserva pelo serviço exportado (ReservaService.findById(id, usuario, tx)), revalidar estado e executar todas as escritas no mesmo tx. Ordem de bloqueio desses comandos: reserva, lote; criação de reserva só bloqueia lote antes de inserir uma nova reserva.
 
 Logs contêm somente quantidades e erros genéricos. RESERVA_NAO_VENCIDA protege domínio contra expiração antecipada/repetida. A dependência @nestjs/schedule é a ferramenta pedida pela issue; sem nova tabela/migration/variável de ambiente.
+
+BE-23 consome ReservaService.findById(id, usuario, tx) para autorizar e bloquear a reserva antes de criar propostas. A aprovação e os demais comandos continuam sujeitos à mesma ordem de bloqueios documentada.
