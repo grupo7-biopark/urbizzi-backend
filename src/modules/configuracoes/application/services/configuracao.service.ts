@@ -22,6 +22,17 @@ export class ConfiguracaoService {
     private readonly transactions: TransactionManager,
     private readonly auditoria: AuditoriaService,
   ) {}
+  async getLimiteRenovacoes(tx: PrismaTransaction): Promise<number | null> {
+    const valor = await this.repository.readLimiteRenovacoes(tx);
+    if (valor === null) return null;
+    const limite = Number(valor);
+    if (!/^\d+$/.test(valor) || !Number.isSafeInteger(limite))
+      throw new BusinessRuleError(
+        'CONFIGURACAO_INVALIDA',
+        'Limite de renovações inválido',
+      );
+    return limite;
+  }
   async getPrazoReservaDias(tx?: PrismaTransaction): Promise<number> {
     return (await this.read(tx)).prazoReservaDias;
   }
