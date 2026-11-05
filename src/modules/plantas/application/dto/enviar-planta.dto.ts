@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsOptional,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { Trim } from '../../../../shared/application/dto/trim.transform.js';
 
 /** Campos de texto do multipart de envio da planta. */
@@ -12,4 +19,11 @@ export class EnviarPlantaDto {
   @IsNotEmpty()
   @MaxLength(150)
   nome: string;
+  /** Copia os marcadores da planta ativa. Padrão false. */
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  copiarMarcadores?: boolean;
 }

@@ -1,3 +1,4 @@
+import { AcervoMarcadoresModule } from '../mapa/acervo-marcadores.module.js';
 import { Module } from '@nestjs/common';
 import { StorageModule } from '../../shared/infra/storage/storage.module.js';
 import { AuditoriaModule } from '../auditoria/auditoria.module.js';
@@ -11,7 +12,7 @@ import { SharpProcessadorImagem } from './infra/repositories/sharp-processador-i
 import { PlantasWorker } from './infra/workers/plantas.worker.js';
 
 @Module({
-  imports: [AuditoriaModule, StorageModule],
+  imports: [AcervoMarcadoresModule, AuditoriaModule, StorageModule],
   controllers: [PlantasController],
   providers: [
     PlantaService,

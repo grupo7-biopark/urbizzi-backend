@@ -81,6 +81,7 @@ export class PlantasController {
       required: ['nome', 'arquivos'],
       properties: {
         nome: { type: 'string', maxLength: 150 },
+        copiarMarcadores: { type: 'boolean', default: false },
         arquivos: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
@@ -90,7 +91,7 @@ export class PlantasController {
       },
     },
   })
-  @ApiErrorResponses(400, 401, 403, 413, 422)
+  @ApiErrorResponses(400, 401, 403, 404, 413, 422)
   enviar(
     @UploadedFiles() arquivos: ArquivoEnviado[] | undefined,
     @Body() dto: EnviarPlantaDto,
@@ -103,6 +104,7 @@ export class PlantasController {
         caminho: arquivo.path,
       })),
       usuario,
+      dto.copiarMarcadores,
     );
   }
 
