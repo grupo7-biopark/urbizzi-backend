@@ -30,3 +30,7 @@ Planta contém só id, nome, versão, dimensões e URL/zoom/tamanho dos tiles. C
 Projeção SQL de leitura documentada em architecture.md, com uma consulta para página e total, sem N+1 e sem acessar dados de clientes. Cadastros excluídos e plantas inativas não aparecem. Ordem estável pelo UUID do marcador. MapaService exportado atende a consulta; marcadores paginados permitem percorrer milhares de lotes sem resposta ilimitada.
 
 BE-38: MapaService.consultarPublico reutiliza a projeção paginada com escopo recebido do serviço de links, mas devolve DTO público próprio com lista explícita de campos e valor somente autorizado. Não importa LinksPublicosModule; dependência segue em uma direção.
+
+## Eventos de status (BE-36)
+
+GET /v1/mapa/eventos exige autenticação. GET /v1/publico/:token/eventos valida o link, filtra pelo loteamento e encerra o fluxo se o link for desativado. Eventos status-lote têm somente loteId e status. Heartbeats saem a cada 15 segundos. O PostgreSQL publica mudanças após o commit, por gatilho. Após reconectar, o cliente deve recarregar o mapa, pois eventos não são armazenados para replay.
