@@ -783,6 +783,10 @@ ReservasModule registra ScheduleModule e ExpiracaoReservasJob; agenda a cada cin
 
 PropostasModule importa ReservasModule, ConfiguracoesModule e AuditoriaModule. PropostaService abre a transação e obtém a reserva pelo serviço exportado com tx, aplicando propriedade e o bloqueio já compartilhado com a expiração. O módulo só escreve propostas, sem acessar tabelas de reserva diretamente. O prazo usa adicionarDiasUteis e a configuração lida na transação. Proposta e auditoria compartilham o commit.
 
+### Histórico do cliente (BE-28)
+
+ClientesModule registra HistoricoClienteService e PrismaHistoricoClienteRepository. Como nas consultas de reservas e mapa, o adapter é uma exceção explícita de leitura entre tabelas: une clientes, reservas, propostas, lotes, quadras e loteamentos, projetando apenas os campos do histórico. Não escreve tabelas alheias nem importa arquivos internos de outros módulos. Assim não cria ciclo com ReservasModule, que já depende de ClientesModule. Uma única consulta parametrizada verifica a existência do cliente, aplica o escopo de vendedor antes da contagem e pagina uma linha do tempo unificada. Não há N+1; contagem e itens compartilham o snapshot. O índice existente de reservas por cliente e o de propostas por reserva atendem os relacionamentos. O DTO normaliza datas em UTC e preserva valores monetários como texto decimal.
+
 
 O módulo AcervoMarcadoresModule fornece o repositório de marcadores ao módulo mapa e exporta CopiaMarcadoresService para plantas. Assim o upload copia as posições na transação que cria a nova versão, sem dependência circular entre PlantasModule e MapaModule. O lock de ativação determina qual planta é a origem da cópia; uma instrução INSERT ... SELECT copia o conjunto de marcadores.
 
