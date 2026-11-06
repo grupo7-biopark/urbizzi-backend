@@ -1,3 +1,4 @@
+import { PainelModule } from './modules/painel/painel.module.js';
 import { ReservasModule } from './modules/reservas/reservas.module.js';
 import { LinksPublicosModule } from './modules/links-publicos/links-publicos.module.js';
 import { ClientesModule } from './modules/clientes/clientes.module.js';
@@ -29,6 +30,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
     ClientesModule,
     ConfiguracoesModule,
     LoteamentosModule,
+    PainelModule,
     // Módulos de domínio (src/modules/<modulo>/<modulo>.module.ts) entram aqui.
   ],
 })
