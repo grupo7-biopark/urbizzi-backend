@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
 } from '../../../../shared/domain/errors/domain.error.js';
 import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
@@ -16,7 +17,9 @@ import {
   type PropostaRepository,
 } from '../../domain/repositories/proposta.repository.interface.js';
 import type { CreatePropostaDto } from '../dto/create-proposta.dto.js';
+import type { DecidirPropostaDto } from '../dto/decidir-proposta.dto.js';
 import { PropostaDto } from '../dto/proposta.dto.js';
+
 @Injectable()
 export class PropostaService {
   constructor(
@@ -27,6 +30,7 @@ export class PropostaService {
     private readonly auditoria: AuditoriaService,
     private readonly transactions: TransactionManager,
   ) {}
+
   create(
     reservaId: string,
     dto: CreatePropostaDto,
@@ -85,6 +89,76 @@ export class PropostaService {
       return PropostaDto.from(proposta);
     });
   }
+
+  aprovar(
+    id: string,
+    dto: DecidirPropostaDto,
+    usuario: UsuarioAutenticado,
+  ): Promise<PropostaDto> {
+    return this.decidir(id, 'APROVADA', dto.motivo, usuario);
+  }
+
+  rejeitar(
+    id: string,
+    dto: DecidirPropostaDto,
+    usuario: UsuarioAutenticado,
+  ): Promise<PropostaDto> {
+    return this.decidir(id, 'REJEITADA', dto.motivo, usuario);
+  }
+
+  private async decidir(
+    id: string,
+    novoStatus: 'APROVADA' | 'REJEITADA',
+    motivo: string,
+    usuario: UsuarioAutenticado,
+  ): Promise<PropostaDto> {
+    this.assertPodeDecidir(usuario);
+    return this.transactions.run(async (tx) => {
+      const propostaInicial = await this.repository.findById(id);
+      if (!propostaInicial)
+        throw new NotFoundError(
+          'PROPOSTA_NAO_ENCONTRADA',
+          'Proposta não encontrada',
+        );
+
+      await this.reservas.findById(
+        propostaInicial.dados.reservaId,
+        usuario,
+        tx,
+      );
+
+      const proposta = await this.repository.findById(id, tx);
+      if (!proposta)
+        throw new NotFoundError(
+          'PROPOSTA_NAO_ENCONTRADA',
+          'Proposta não encontrada',
+        );
+
+      if (novoStatus === 'APROVADA') {
+        proposta.aprovar(usuario.id, motivo);
+      } else {
+        proposta.rejeitar(usuario.id, motivo);
+      }
+
+      await this.repository.update(proposta, tx);
+
+      await this.auditoria.registrar(
+        {
+          usuarioId: usuario.id,
+          entidadeTipo: 'Proposta',
+          entidadeId: id,
+          acao: novoStatus === 'APROVADA' ? 'APROVAR' : 'REJEITAR',
+          valorAnterior: { status: 'EM_ANALISE' },
+          valorNovo: { status: novoStatus },
+          motivo: motivo.trim(),
+        },
+        tx,
+      );
+
+      return PropostaDto.from(proposta);
+    });
+  }
+
   async findById(
     id: string,
     usuario: UsuarioAutenticado,
@@ -98,6 +172,7 @@ export class PropostaService {
     await this.reservas.findById(proposta.dados.reservaId, usuario);
     return PropostaDto.from(proposta);
   }
+
   async list(
     reservaId: string,
     query: Pagination,
@@ -106,8 +181,57 @@ export class PropostaService {
     await this.reservas.findById(reservaId, usuario);
     const result = await this.repository.list(reservaId, query);
     return PaginatedDto.of(
-      { items: result.items.map(PropostaDto.from), total: result.total },
+      {
+        items: result.items.map((p) => PropostaDto.from(p)),
+        total: result.total,
+      },
       query,
     );
+  }
+
+  async listPendentes(
+    query: Pagination,
+    usuario: UsuarioAutenticado,
+  ): Promise<PaginatedDto<PropostaDto>> {
+    this.assertPodeDecidir(usuario);
+    const result = await this.repository.listPendentes(query);
+    return PaginatedDto.of(
+      {
+        items: result.items.map((p) => PropostaDto.from(p)),
+        total: result.total,
+      },
+      query,
+    );
+  }
+
+  async listMinhas(
+    query: Pagination,
+    usuario: UsuarioAutenticado,
+  ): Promise<PaginatedDto<PropostaDto>> {
+    this.assertPerfilMinhas(usuario);
+    const result = await this.repository.listMinhas(usuario.id, query);
+    return PaginatedDto.of(
+      {
+        items: result.items.map((p) => PropostaDto.from(p)),
+        total: result.total,
+      },
+      query,
+    );
+  }
+
+  private assertPodeDecidir(usuario: UsuarioAutenticado): void {
+    if (usuario.perfil !== 'ADMINISTRADOR' && usuario.perfil !== 'GESTOR')
+      throw new ForbiddenError(
+        'ACESSO_NEGADO',
+        'Você não tem permissão para executar esta ação',
+      );
+  }
+
+  private assertPerfilMinhas(usuario: UsuarioAutenticado): void {
+    if (usuario.perfil === 'CONSULTA')
+      throw new ForbiddenError(
+        'ACESSO_NEGADO',
+        'Você não tem permissão para executar esta ação',
+      );
   }
 }
