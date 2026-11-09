@@ -12,6 +12,12 @@ GET /v1/reservas e /v1/reservas/minhas são paginados (page/pageSize) e exigem A
 
 Ordenação estável por vencimento crescente e id. Retorna resumo do lote, cliente (só id/nome; nome nulo quando removido) e última proposta (id/status/valor decimal, sem condições). Cache-Control no-store. A projeção SQL documentada em architecture.md faz página/contagem num snapshot, sem N+1, preserva cadastros históricos e não escreve em tabelas alheias.
 
+## Venda de lote (BE-25)
+
+`POST /v1/lotes/:id/vender` exige Administrador ou Gestor e retorna 204. A operação verifica uma reserva ATIVA e uma proposta APROVADA depois de bloquear a reserva. Prazo vencido por si só não impede a venda se a reserva permanece ATIVA com proposta aprovada (RN12). O lote passa de RESERVADO para VENDIDO e a reserva passa de ATIVA para CONVERTIDA. Ambas as alterações são auditadas na mesma transação. Nova tentativa após a venda recebe 409.
+
+Erros de negócio: `LOTE_NAO_ENCONTRADO` (404), `LOTE_SEM_RESERVA_ATIVA`, `LOTE_SEM_PROPOSTA_APROVADA`, `LOTE_NAO_RESERVADO` e `LOTE_STATUS_ALTERADO` (409).
+
 ## Expiração automática (BE-21)
 
 ExpiracaoReservasJob usa @nestjs/schedule, intervalo de cinco minutos após iniciar a aplicação. Não sobrepõe ciclos na mesma instância e aguarda o ciclo atual ao encerrar. ExpiracaoReservaService percorre candidatas em páginas de 100 por UUID, com horário fixo do início do ciclo, até terminar a seleção. Não há limite de 100 expirações por ciclo nem loop infinito sobre uma candidata com falha.

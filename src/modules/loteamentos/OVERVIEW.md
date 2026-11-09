@@ -53,6 +53,7 @@ Cadastro dos loteamentos comercializados pela Urbizzi (RF05), das suas quadras (
 | `GET` | `/v1/lotes/:id` | todos os autenticados | detalha um lote |
 | `PATCH` | `/v1/lotes/:id` | ADMINISTRADOR, GESTOR | atualiza o cadastro (sem status nem quadra) |
 | `DELETE` | `/v1/lotes/:id` | ADMINISTRADOR, GESTOR | exclui (soft delete) lote disponível e sem reservas |
+| `POST` | `/v1/lotes/:id/vender` | ADMINISTRADOR, GESTOR | registra a venda e converte a reserva ativa |
 | `POST` | `/v1/lotes/importacao` | ADMINISTRADOR, GESTOR | valida (prévia) ou importa lotes de planilha CSV/XLSX |
 | `GET` | `/v1/lotes/importacao/modelo` | ADMINISTRADOR, GESTOR | baixa o modelo de planilha (`formato=xlsx` ou `csv`) |
 
