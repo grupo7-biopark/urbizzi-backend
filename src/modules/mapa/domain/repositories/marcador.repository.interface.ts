@@ -3,6 +3,12 @@ import type { Page, Pagination } from '../../../../shared/domain/pagination.js';
 import type { Marcador } from '../models/marcador.entity.js';
 export const MARCADOR_REPOSITORY = Symbol('MARCADOR_REPOSITORY');
 export interface MarcadorRepository {
+  copiar(
+    origem: string,
+    destino: string,
+    mudouProporcao: boolean,
+    tx: PrismaTransaction,
+  ): Promise<number>;
   list(plantaId: string, pagination: Pagination): Promise<Page<Marcador>>;
   loteIds(plantaId: string): Promise<string[]>;
   find(

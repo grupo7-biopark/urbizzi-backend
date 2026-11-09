@@ -23,6 +23,39 @@ export class PrismaReservaRepository implements ReservaRepository {
       throw error;
     }
   }
+  async travarAtivaPorLote(
+    loteId: string,
+    tx: PrismaTransaction,
+  ): Promise<string | null> {
+    const [reserva] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM reservas
+      WHERE lote_id = ${loteId}::uuid AND status = 'ATIVA'
+      FOR UPDATE
+    `;
+    return reserva?.id ?? null;
+  }
+
+  async findPropostaAprovada(
+    id: string,
+    tx: PrismaTransaction,
+  ): Promise<string | null> {
+    // Lida depois do lock de reserva compartilhado com a decisão e a expiração.
+    const [proposta] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM propostas
+      WHERE reserva_id = ${id}::uuid AND status = 'APROVADA'
+      ORDER BY data_decisao DESC, id DESC
+      LIMIT 1
+    `;
+    return proposta?.id ?? null;
+  }
+
+  async converter(id: string, tx: PrismaTransaction): Promise<void> {
+    await tx.reserva.update({
+      where: { id },
+      data: { status: 'CONVERTIDA' },
+    });
+  }
+
   async findById(id: string, tx?: PrismaTransaction): Promise<Reserva | null> {
     if (tx)
       await tx.$queryRaw`SELECT id FROM reservas WHERE id = ${id}::uuid FOR UPDATE`;

@@ -12,6 +12,16 @@ import type { MarcadorRepository } from '../../domain/repositories/marcador.repo
 @Injectable()
 export class PrismaMarcadorRepository implements MarcadorRepository {
   constructor(private readonly prisma: PrismaService) {}
+  copiar(
+    origem: string,
+    destino: string,
+    mudouProporcao: boolean,
+    tx: PrismaTransaction,
+  ): Promise<number> {
+    return tx.$executeRaw`INSERT INTO marcadores (id, planta_id, lote_id, x, y, revisar, updated_at)
+      SELECT gen_random_uuid(), ${destino}::uuid, lote_id, x, y, revisar OR ${mudouProporcao}, now()
+      FROM marcadores WHERE planta_id = ${origem}::uuid`;
+  }
   async list(plantaId: string, pagination: Pagination) {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.marcador.findMany({
@@ -57,8 +67,8 @@ export class PrismaMarcadorRepository implements MarcadorRepository {
     }
   }
   async update(marcador: Marcador, tx: PrismaTransaction): Promise<void> {
-    const { id, x, y } = marcador.dados;
-    await tx.marcador.update({ where: { id }, data: { x, y } });
+    const { id, x, y, revisar } = marcador.dados;
+    await tx.marcador.update({ where: { id }, data: { x, y, revisar } });
   }
   async delete(id: string, tx: PrismaTransaction): Promise<void> {
     await tx.marcador.delete({ where: { id } });

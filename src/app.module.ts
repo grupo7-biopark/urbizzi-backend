@@ -1,4 +1,5 @@
 import { PainelModule } from './modules/painel/painel.module.js';
+import { PropostasModule } from './modules/propostas/propostas.module.js';
 import { ReservasModule } from './modules/reservas/reservas.module.js';
 import { LinksPublicosModule } from './modules/links-publicos/links-publicos.module.js';
 import { ClientesModule } from './modules/clientes/clientes.module.js';
@@ -17,6 +18,7 @@ import { HealthModule } from './shared/infra/health/health.module.js';
 
 @Module({
   imports: [
+    PropostasModule,
     MapaModule,
     ReservasModule,
     ConfigModule.forRoot({ isGlobal: true, cache: true, validate }),
