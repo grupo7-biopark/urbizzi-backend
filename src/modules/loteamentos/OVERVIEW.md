@@ -50,7 +50,8 @@ Cadastro dos loteamentos comercializados pela Urbizzi (RF05), das suas quadras (
 | `DELETE` | `/v1/quadras/:id` | ADMINISTRADOR, GESTOR | exclui (soft delete) se não houver lotes |
 | `POST` | `/v1/lotes` | ADMINISTRADOR, GESTOR | cria um lote `DISPONIVEL` |
 | `GET` | `/v1/lotes` | todos os autenticados | lista paginada com filtros `loteamentoId`, `quadraId`, `status` e `q` |
-| `GET` | `/v1/lotes/:id` | todos os autenticados | detalha um lote |
+| `GET` | `/v1/lotes/:id` | todos os autenticados | detalha o cadastro de um lote |
+| `GET` | `/v1/lotes/:id/detalhe` | todos os autenticados, com campos por perfil | reúne cadastro, reserva, propostas e histórico recente |
 | `PATCH` | `/v1/lotes/:id` | ADMINISTRADOR, GESTOR | atualiza o cadastro (sem status nem quadra) |
 | `DELETE` | `/v1/lotes/:id` | ADMINISTRADOR, GESTOR | exclui (soft delete) lote disponível e sem reservas |
 | `POST` | `/v1/lotes/:id/vender` | ADMINISTRADOR, GESTOR | registra a venda e converte a reserva ativa |
@@ -78,6 +79,10 @@ Cadastro dos loteamentos comercializados pela Urbizzi (RF05), das suas quadras (
 | `IMPORTACAO_COLUNAS_AUSENTES` | 422 | cabeçalho sem alguma coluna obrigatória |
 | `IMPORTACAO_SEM_LINHAS` | 422 | planilha sem lotes preenchidos |
 | `IMPORTACAO_LIMITE_EXCEDIDO` | 422 | mais de 5000 lotes |
+
+## Detalhe do lote (BE-27)
+
+A resposta reúne `lote`, `quadra`, `loteamento`, `reserva`, `propostas` e os 20 eventos mais recentes do `historico`, em ordem decrescente. Para lotes vendidos, a reserva convertida fica disponível aos perfis autorizados. Lotes sem reserva visível retornam `reserva: null` e `propostas: []`. Consulta recebe somente dados cadastrais. Comercial vê informações de reserva, propostas e eventos somente quando for o vendedor responsável. Gestor e Administrador também veem eventos cadastrais do lote. Lote ausente ou excluído retorna 404.
 
 ## Dependências
 
