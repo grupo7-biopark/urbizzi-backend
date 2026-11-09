@@ -49,8 +49,8 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `auditoria` | `HistoricoAuditoria` | registro e consulta do histórico de alterações | — | BE-06, BE-13 |
 | `loteamentos` | `Loteamento`, `Quadra`, `Lote` | cadastros, importação de lotes, bloqueio, detalhe do lote | `auditoria` | BE-14 a BE-17, BE-26, BE-27 |
 | `clientes` | `Cliente` | cadastro e busca de clientes, histórico do cliente | `auditoria` | BE-18, BE-28 |
-| `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar e expirar reservas | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22 |
-| `propostas` | `Proposta` | proposta, aprovação/rejeição, venda do lote | `reservas`, `loteamentos`, `configuracoes`, `auditoria` | BE-23 a BE-25 |
+| `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar, expirar e converter reservas na venda do lote | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22, BE-25 |
+| `propostas` | `Proposta` | proposta, aprovação/rejeição | `reservas`, `configuracoes`, `auditoria` | BE-23, BE-24 |
 | `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
 | `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria` | BE-33, BE-35, BE-36 |
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria`, `mapa` | BE-37, BE-38 |
@@ -778,6 +778,10 @@ PrismaReservaConsultaRepository é um read model explícito, como mapa/auditoria
 
 ReservasModule registra ScheduleModule e ExpiracaoReservasJob; agenda a cada cinco minutos e delega ao service. Projeção explícita de elegibilidade em PrismaExpiracaoReservaRepository permite somente leitura EXISTS de proposta aprovada (RN12), sem importar módulo/repositório de propostas ou escrever tabela alheia. A revalidação ocorre depois de bloquear a reserva, num novo snapshot. Todos os futuros comandos sobre reserva/proposta devem adquirir o mesmo bloqueio pelo ReservaService.findById(id, usuario, tx) antes de decidir/gravar: uma aprovação deve ser serializada com a expiração, nunca feita após leitura sem bloqueio. Lote é alterado exclusivamente pelo serviço dono. Cada reserva tem sua própria transação e auditorias atômicas, falhas individuais não travam a fila. Paginação por UUID evita reprocessar falhas no mesmo ciclo; outras instâncias usam SKIP LOCKED. Shutdown espera execução pendente, sem nova infraestrutura.
 
+
+### Venda de lote (BE-25)
+
+ReservasModule expõe o comando de venda e coordena a transação. Primeiro bloqueia a reserva ativa com o mesmo lock usado pela expiração e pela decisão de proposta. A elegibilidade usa uma projeção de leitura de proposta aprovada, consultada depois do lock. LoteService bloqueia o lote, valida a transição RESERVADO → VENDIDO e audita. Somente o repositório de reservas converte a reserva. As duas alterações e as auditorias compartilham o commit. Não há tabela nova nem dependência circular com PropostasModule.
 
 ### Criação de propostas (BE-23)
 
