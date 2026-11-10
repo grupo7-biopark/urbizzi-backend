@@ -118,10 +118,10 @@ describe('Proposta', () => {
   it.each(['', '   '])('rejeita motivo de decisão vazio %s', (motivo) => {
     const p = Proposta.create(input, 5);
     expect(() => p.aprovar('gestor-1', motivo)).toThrow(
-      'O motivo da decisão é obrigatório',
+      expect.objectContaining({ code: 'MOTIVO_OBRIGATORIO' }),
     );
     expect(() => p.rejeitar('gestor-1', motivo)).toThrow(
-      'O motivo da decisão é obrigatório',
+      expect.objectContaining({ code: 'MOTIVO_OBRIGATORIO' }),
     );
   });
 

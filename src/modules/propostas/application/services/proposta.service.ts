@@ -113,15 +113,15 @@ export class PropostaService {
     usuario: UsuarioAutenticado,
   ): Promise<PropostaDto> {
     this.assertPodeDecidir(usuario);
-    return this.transactions.run(async (tx) => {
-      const propostaInicial = await this.repository.findById(id);
-      if (!propostaInicial)
-        throw new NotFoundError(
-          'PROPOSTA_NAO_ENCONTRADA',
-          'Proposta não encontrada',
-        );
+    const propostaInicial = await this.repository.findById(id);
+    if (!propostaInicial)
+      throw new NotFoundError(
+        'PROPOSTA_NAO_ENCONTRADA',
+        'Proposta não encontrada',
+      );
 
-      await this.reservas.findById(
+    return this.transactions.run(async (tx) => {
+      const reserva = await this.reservas.findById(
         propostaInicial.dados.reservaId,
         usuario,
         tx,
@@ -135,7 +135,17 @@ export class PropostaService {
         );
 
       if (novoStatus === 'APROVADA') {
-        proposta.aprovar(usuario.id, motivo);
+        const agora = new Date();
+        // A entidade verifica primeiro se a proposta já foi decidida.
+        proposta.aprovar(usuario.id, motivo, agora);
+        if (
+          reserva.status !== 'ATIVA' ||
+          new Date(reserva.dataVencimento) <= agora
+        )
+          throw new ConflictError(
+            'RESERVA_INVALIDA_PARA_PROPOSTA',
+            'A reserva deve estar ativa e dentro do prazo para aprovar a proposta',
+          );
       } else {
         proposta.rejeitar(usuario.id, motivo);
       }

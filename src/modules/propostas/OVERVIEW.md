@@ -24,7 +24,8 @@ Decisão de propostas (BE-24):
 - Registra `decididoPorId`, `dataDecisao` e `motivoDecisao`.
 - Proposta já decidida não pode ser decidida novamente (409 PROPOSTA_JA_DECIDIDA).
 - A aprovação não altera o status do lote, que permanece RESERVADO (RN17).
-- A aprovação serializa com a expiração da reserva através de lock na reserva.
+- Após bloquear a reserva, a aprovação exige status ATIVA e vencimento futuro, mesmo se o job de expiração ainda não tiver rodado. Retorna 409 RESERVA_INVALIDA_PARA_PROPOSTA se a reserva já estiver vencida ou encerrada. Uma proposta atrasada ainda pode ser aprovada se a reserva estiver válida.
+- A gestão pode rejeitar uma proposta pendente de uma reserva encerrada. A rejeição registra a decisão sem alterar a reserva ou o lote.
 
 Acompanhamento de propostas (BE-24):
 - `GET /v1/propostas/pendentes` (Administrador e Gestor): lista propostas em análise (status EM_ANALISE) ordenadas por prazo limite crescente (`prazoLimite asc, id asc`), destacando as atrasadas com a flag booleana `atrasada: true` quando o prazo limite passou (`prazoLimite <= agora`) sem alterar seu status no banco (RF21, RN09).

@@ -7,6 +7,7 @@ import { criarCenarioMapa } from '../helpers/mapa.js';
 import { limparBanco } from '../helpers/database.js';
 import { PrismaService } from '../../src/shared/infra/database/prisma.service.js';
 import { AuditoriaService } from '../../src/modules/auditoria/application/services/auditoria.service.js';
+import { ExpiracaoReservaService } from '../../src/modules/reservas/application/services/expiracao-reserva.service.js';
 import { adicionarDiasUteis } from '../../src/shared/domain/dias-uteis.js';
 
 describe('Propostas (e2e)', () => {
@@ -47,6 +48,35 @@ describe('Propostas (e2e)', () => {
       .post(url())
       .auth(c.usuarios[perfil].token, { type: 'bearer' })
       .send(dto);
+  const decidir = (id: string, acao: 'aprovar' | 'rejeitar') =>
+    request(app.getHttpServer())
+      .post(`/v1/propostas/${id}/${acao}`)
+      .auth(c.usuarios.GESTOR.token, { type: 'bearer' })
+      .send({ motivo: 'Decisão da gestão' });
+
+  const vencerReserva = () =>
+    prisma.reserva.update({
+      where: { id: reservaId },
+      data: {
+        dataInicio: new Date(Date.now() - 86400000),
+        dataVencimento: new Date(Date.now() - 1000),
+      },
+    });
+
+  async function verificarSemDecisao(id: string) {
+    expect(
+      await prisma.proposta.findUniqueOrThrow({ where: { id } }),
+    ).toMatchObject({
+      status: 'EM_ANALISE',
+      decididoPorId: null,
+      dataDecisao: null,
+      motivoDecisao: null,
+    });
+    const auditoria = await prisma.historicoAuditoria.findMany({
+      where: { entidadeTipo: 'Proposta', entidadeId: id },
+    });
+    expect(auditoria.map(({ acao }) => acao)).toEqual(['CRIAR']);
+  }
 
   it('cria com prazo configurado, consulta, lista e audita sem alterar lote', async () => {
     await prisma.configuracao.create({
@@ -369,6 +399,105 @@ describe('Propostas (e2e)', () => {
     expect(repRejeitar.body.code).toBe('PROPOSTA_JA_DECIDIDA');
   });
 
+  it('grava só uma decisão quando aprovação e rejeição concorrem', async () => {
+    const { id } = (await criar().expect(201)).body;
+    const respostas = await Promise.all([
+      decidir(id, 'aprovar'),
+      decidir(id, 'rejeitar'),
+    ]);
+    expect(respostas.map(({ status }) => status).sort()).toEqual([200, 409]);
+    const vencedora = respostas.find(({ status }) => status === 200)!.body;
+    expect(respostas.find(({ status }) => status === 409)!.body.code).toBe(
+      'PROPOSTA_JA_DECIDIDA',
+    );
+    expect(
+      await prisma.proposta.findUniqueOrThrow({ where: { id } }),
+    ).toMatchObject({
+      status: vencedora.status,
+      decididoPorId: vencedora.decididoPorId,
+      dataDecisao: new Date(vencedora.dataDecisao),
+      motivoDecisao: vencedora.motivoDecisao,
+    });
+    const auditoria = await prisma.historicoAuditoria.findMany({
+      where: { entidadeId: id, acao: { in: ['APROVAR', 'REJEITAR'] } },
+    });
+    expect(auditoria).toHaveLength(1);
+    expect(auditoria[0].valorNovo).toEqual({ status: vencedora.status });
+  });
+
+  it.each(['aprovar', 'rejeitar'] as const)(
+    'desfaz %s se a auditoria falhar',
+    async (acao) => {
+      const { id } = (await criar().expect(201)).body;
+      const auditoria = app.get(AuditoriaService);
+      const registrar = auditoria.registrar.bind(auditoria);
+      vi.spyOn(auditoria, 'registrar').mockImplementation(async (dados, tx) => {
+        const registro = await registrar(dados, tx);
+        if (dados.entidadeId === id) throw new Error('Falha simulada');
+        return registro;
+      });
+      await decidir(id, acao).expect(500);
+      await verificarSemDecisao(id);
+    },
+  );
+
+  it.each(['CANCELADA', 'CONVERTIDA'] as const)(
+    'nega aprovação de proposta com reserva %s',
+    async (status) => {
+      const { id } = (await criar().expect(201)).body;
+      await prisma.reserva.update({
+        where: { id: reservaId },
+        data: { status },
+      });
+      expect((await decidir(id, 'aprovar').expect(409)).body.code).toBe(
+        'RESERVA_INVALIDA_PARA_PROPOSTA',
+      );
+      await verificarSemDecisao(id);
+    },
+  );
+
+  it('nega aprovação antes e depois da expiração e permite registrar rejeição', async () => {
+    const { id } = (await criar().expect(201)).body;
+    await vencerReserva();
+    expect((await decidir(id, 'aprovar').expect(409)).body.code).toBe(
+      'RESERVA_INVALIDA_PARA_PROPOSTA',
+    );
+    await verificarSemDecisao(id);
+    expect(await app.get(ExpiracaoReservaService).executar()).toEqual({
+      expiradas: 1,
+      falhas: 0,
+    });
+    expect((await decidir(id, 'aprovar').expect(409)).body.code).toBe(
+      'RESERVA_INVALIDA_PARA_PROPOSTA',
+    );
+    await verificarSemDecisao(id);
+    expect((await decidir(id, 'rejeitar').expect(200)).body.status).toBe(
+      'REJEITADA',
+    );
+    expect(
+      await prisma.lote.findUniqueOrThrow({ where: { id: c.lotes[0].id } }),
+    ).toMatchObject({ status: 'DISPONIVEL' });
+  });
+
+  it('nega aprovação concorrente com a expiração da reserva', async () => {
+    const { id } = (await criar().expect(201)).body;
+    await vencerReserva();
+    const expiracao = app.get(ExpiracaoReservaService);
+    const [aprovacao, primeira] = await Promise.all([
+      decidir(id, 'aprovar').expect(409),
+      expiracao.executar(),
+    ]);
+    expect(aprovacao.body.code).toBe('RESERVA_INVALIDA_PARA_PROPOSTA');
+    // O job pode pular a linha enquanto a requisição de aprovação a bloqueia.
+    const segunda = await expiracao.executar();
+    expect(primeira.expiradas + segunda.expiradas).toBe(1);
+    expect(primeira.falhas + segunda.falhas).toBe(0);
+    expect(
+      await prisma.reserva.findUniqueOrThrow({ where: { id: reservaId } }),
+    ).toMatchObject({ status: 'EXPIRADA' });
+    await verificarSemDecisao(id);
+  });
+
   it('exige motivo obrigatório na aprovação e rejeição (400)', async () => {
     const p = (await criar().expect(201)).body;
 
@@ -447,8 +576,22 @@ describe('Propostas (e2e)', () => {
       .get('/v1/propostas/minhas')
       .auth(c.usuarios.COMERCIAL.token, { type: 'bearer' })
       .expect(200);
-    expect(minhas.body.meta.total).toBe(1);
-    expect(minhas.body.data[0].id).toBe(p.id);
+    expect(minhas.body.meta.total).toBe(2);
+    expect(minhas.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: p.id, status: 'EM_ANALISE' }),
+        expect.objectContaining({
+          reservaId: c.reserva.id,
+          status: 'APROVADA',
+        }),
+      ]),
+    );
+    const outro = await criarUsuarioTeste(app, 'COMERCIAL');
+    const minhasDoOutro = await request(app.getHttpServer())
+      .get('/v1/propostas/minhas')
+      .auth(outro.token, { type: 'bearer' })
+      .expect(200);
+    expect(minhasDoOutro.body.data).toEqual([]);
   });
 
   it('exibe flag atrasada em propostas vencidas sem mudar status no banco e ordena pendentes', async () => {
@@ -508,11 +651,16 @@ describe('Propostas (e2e)', () => {
       .auth(c.usuarios.COMERCIAL.token, { type: 'bearer' })
       .expect(200);
 
-    expect(minhas.body.meta.total).toBe(2);
+    expect(minhas.body.meta.total).toBe(3);
     const itemAtrasado = minhas.body.data.find(
       (item: { id: string }) => item.id === p2.id,
     );
     expect(itemAtrasado.atrasada).toBe(true);
     expect(itemAtrasado.status).toBe('EM_ANALISE');
+
+    expect((await decidir(p2.id, 'aprovar').expect(200)).body).toMatchObject({
+      status: 'APROVADA',
+      atrasada: false,
+    });
   });
 });
