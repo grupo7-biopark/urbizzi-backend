@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Query,
+  Header,
   Param,
   ParseUUIDPipe,
   Post,
@@ -19,6 +20,7 @@ import { CurrentUser } from '../../../../shared/infra/auth/current-user.decorato
 import { Perfis } from '../../../../shared/infra/auth/perfis.decorator.js';
 import { ApiErrorResponses } from '../../../../shared/infra/http/swagger/api-error-responses.decorator.js';
 import { CreateReservaDto } from '../../application/dto/create-reserva.dto.js';
+import { PrevisaoReservaDto } from '../../application/dto/previsao-reserva.dto.js';
 import { ReservaDto } from '../../application/dto/reserva.dto.js';
 import { ReservaService } from '../../application/services/reserva.service.js';
 import { PaginationQueryDto } from '../../../../shared/application/dto/pagination-query.dto.js';
@@ -78,6 +80,16 @@ export class ReservasController {
     return this.service.listarRenovacoes(id, query, usuario);
   }
 
+  /** Prevê o vencimento de uma reserva iniciada agora, sem criar a reserva. */
+  @Get('previsao')
+  @Header('Cache-Control', 'no-store')
+  @ApiOkResponse({ type: PrevisaoReservaDto })
+  @ApiErrorResponses(401, 403, 422)
+  prever(
+    @CurrentUser() usuario: UsuarioAutenticado,
+  ): Promise<PrevisaoReservaDto> {
+    return this.service.preverVencimento(usuario);
+  }
   /** Consulta a reserva com tempo restante; Comercial só consulta as próprias */
   @Get(':id')
   @ApiOkResponse({ type: ReservaDto })

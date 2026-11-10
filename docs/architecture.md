@@ -49,8 +49,8 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `auditoria` | `HistoricoAuditoria` | registro e consulta do histórico de alterações | — | BE-06, BE-13 |
 | `loteamentos` | `Loteamento`, `Quadra`, `Lote` | cadastros, importação de lotes, bloqueio, detalhe do lote | `auditoria` | BE-14 a BE-17, BE-26, BE-27 |
 | `clientes` | `Cliente` | cadastro e busca de clientes, histórico do cliente | `auditoria` | BE-18, BE-28 |
-| `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar e expirar reservas | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22 |
-| `propostas` | `Proposta` | proposta, aprovação/rejeição, venda do lote | `reservas`, `loteamentos`, `configuracoes`, `auditoria` | BE-23 a BE-25 |
+| `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar, expirar e converter reservas na venda do lote | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22, BE-25 |
+| `propostas` | `Proposta` | proposta, aprovação/rejeição | `reservas`, `configuracoes`, `auditoria` | BE-23, BE-24 |
 | `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
 | `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria` | BE-33, BE-35, BE-36 |
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria`, `mapa` | BE-37, BE-38 |
@@ -777,3 +777,29 @@ PrismaReservaConsultaRepository é um read model explícito, como mapa/auditoria
 ### Expiração de reservas (BE-21)
 
 ReservasModule registra ScheduleModule e ExpiracaoReservasJob; agenda a cada cinco minutos e delega ao service. Projeção explícita de elegibilidade em PrismaExpiracaoReservaRepository permite somente leitura EXISTS de proposta aprovada (RN12), sem importar módulo/repositório de propostas ou escrever tabela alheia. A revalidação ocorre depois de bloquear a reserva, num novo snapshot. Todos os futuros comandos sobre reserva/proposta devem adquirir o mesmo bloqueio pelo ReservaService.findById(id, usuario, tx) antes de decidir/gravar: uma aprovação deve ser serializada com a expiração, nunca feita após leitura sem bloqueio. Lote é alterado exclusivamente pelo serviço dono. Cada reserva tem sua própria transação e auditorias atômicas, falhas individuais não travam a fila. Paginação por UUID evita reprocessar falhas no mesmo ciclo; outras instâncias usam SKIP LOCKED. Shutdown espera execução pendente, sem nova infraestrutura.
+
+
+### Venda de lote (BE-25)
+
+ReservasModule expõe o comando de venda e coordena a transação. Primeiro bloqueia a reserva ativa com o mesmo lock usado pela expiração e pela decisão de proposta. A elegibilidade usa uma projeção de leitura de proposta aprovada, consultada depois do lock. LoteService bloqueia o lote, valida a transição RESERVADO → VENDIDO e audita. Somente o repositório de reservas converte a reserva. As duas alterações e as auditorias compartilham o commit. Não há tabela nova nem dependência circular com PropostasModule.
+
+### Criação de propostas (BE-23)
+
+PropostasModule importa ReservasModule, ConfiguracoesModule e AuditoriaModule. PropostaService abre a transação e obtém a reserva pelo serviço exportado com tx, aplicando propriedade e o bloqueio já compartilhado com a expiração. O módulo só escreve propostas, sem acessar tabelas de reserva diretamente. O prazo usa adicionarDiasUteis e a configuração lida na transação. Proposta e auditoria compartilham o commit.
+
+### Detalhe do lote (BE-27)
+
+PrismaLoteDetalheRepository usa uma consulta parametrizada que projeta cadastros, reserva, propostas e eventos recentes no mesmo snapshot. É uma exceção explícita de leitura às tabelas por módulo, como mapa e histórico do cliente. LoteDetalheService define o escopo, e a consulta restringe as reservas antes de montar os campos e a linha do tempo. A projeção de auditoria contém somente identificação do evento, ação e data.
+
+### Histórico do cliente (BE-28)
+
+ClientesModule registra HistoricoClienteService e PrismaHistoricoClienteRepository. Como nas consultas de reservas e mapa, o adapter é uma exceção explícita de leitura entre tabelas: une clientes, reservas, propostas, lotes, quadras e loteamentos, projetando apenas os campos do histórico. Não escreve tabelas alheias nem importa arquivos internos de outros módulos. Assim não cria ciclo com ReservasModule, que já depende de ClientesModule. Uma única consulta parametrizada verifica a existência do cliente, aplica o escopo de vendedor antes da contagem e pagina uma linha do tempo unificada. Não há N+1; contagem e itens compartilham o snapshot. O índice existente de reservas por cliente e o de propostas por reserva atendem os relacionamentos. O DTO normaliza datas em UTC e preserva valores monetários como texto decimal.
+
+
+O módulo AcervoMarcadoresModule fornece o repositório de marcadores ao módulo mapa e exporta CopiaMarcadoresService para plantas. Assim o upload copia as posições na transação que cria a nova versão, sem dependência circular entre PlantasModule e MapaModule. O lock de ativação determina qual planta é a origem da cópia; uma instrução INSERT ... SELECT copia o conjunto de marcadores.
+
+### Painel de indicadores (BE-39)
+
+PainelModule registra PainelService e PrismaPainelConsultaRepository. Como no mapa e no histórico do cliente, o adapter de consulta é um read model explícito: agrega dados de loteamentos, quadras, lotes, reservas, propostas e usuários via consultas SQL parametrizadas diretamente no banco de dados (COUNT, SUM, GROUP BY), sem carregar históricos ou coleções em memória no Node. Não realiza escritas em tabelas nem acessa repositórios alheios. Para validação de escopo e existência de loteamento, PainelService utiliza LoteamentoService exportado pelo LoteamentosModule. O escopo do perfil COMERCIAL é restrito às suas próprias pendências pelo service antes da consulta. Cálculos de semanas ISO utilizam o ano da quinta-feira da respectiva semana (IYYY-IW no Postgres), evitando anomalias em viradas de ano (dezembro/janeiro). Todas as rotas do painel respondem com cabeçalho `Cache-Control: no-store` e preservam valores monetários como strings decimais exatas.
+
+

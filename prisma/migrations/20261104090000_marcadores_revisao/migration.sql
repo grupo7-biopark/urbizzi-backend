@@ -1,0 +1,1 @@
+ALTER TABLE "marcadores" ADD COLUMN "revisar" BOOLEAN NOT NULL DEFAULT false;

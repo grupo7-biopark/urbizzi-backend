@@ -8,6 +8,7 @@ import type { AuditoriaService } from '../../../auditoria/application/services/a
 describe('MarcadorService', () => {
   const tx = {} as PrismaTransaction;
   const repository = {
+    copiar: vi.fn(),
     list: vi.fn(),
     loteIds: vi.fn(),
     find: vi.fn(),

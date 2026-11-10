@@ -1,3 +1,4 @@
+import { CopiaMarcadoresService } from '../../../mapa/application/services/copia-marcadores.service.js';
 import { createReadStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
@@ -66,6 +67,7 @@ export class PlantaService {
     @Inject(STORAGE) private readonly storage: Storage,
     private readonly transactionManager: TransactionManager,
     private readonly auditoriaService: AuditoriaService,
+    private readonly marcadores: CopiaMarcadoresService,
   ) {}
 
   /**
@@ -76,6 +78,7 @@ export class PlantaService {
     nome: string,
     arquivos: ArquivoPlanta[],
     usuario: UsuarioAutenticado,
+    copiarMarcadores = false,
   ): Promise<PlantaDto> {
     const grade = GradeFatias.montar(await this.lerImagens(arquivos));
     if (grade.larguraTotal * grade.alturaTotal > PIXELS_MAXIMOS) {
@@ -109,13 +112,34 @@ export class PlantaService {
           criadoPorId: usuario.id,
         });
         await this.plantaRepository.create(nova, tx);
+        let copia;
+        if (copiarMarcadores) {
+          const origem = await this.plantaRepository.travarAtiva(tx);
+          if (!origem)
+            throw new NotFoundError(
+              'PLANTA_ATIVA_NAO_ENCONTRADA',
+              'Nenhuma planta ativa para copiar os marcadores',
+            );
+          const mudouProporcao =
+            !origem.larguraPx ||
+            !origem.alturaPx ||
+            origem.larguraPx * grade.alturaTotal !==
+              origem.alturaPx * grade.larguraTotal;
+          const quantidade = await this.marcadores.copiar(
+            origem.id,
+            nova.id,
+            mudouProporcao,
+            tx,
+          );
+          copia = { plantaOrigemId: origem.id, quantidade, mudouProporcao };
+        }
         await this.auditoriaService.registrar(
           {
             usuarioId: usuario.id,
             entidadeTipo: ENTIDADE_TIPO,
             entidadeId: nova.id,
             acao: 'CRIAR',
-            valorNovo: { ...nova.auditoria },
+            valorNovo: { ...nova.auditoria, ...(copia && { copia }) },
           },
           tx,
         );

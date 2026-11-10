@@ -376,6 +376,7 @@ model Planta {
 
 /// CHECK em SQL: x e y entre 0 e 1 (marcadores_x_check, marcadores_y_check)
 model Marcador {
+  revisar Boolean @default(false)
   id        String   @id @default(uuid()) @db.Uuid
   plantaId  String   @map("planta_id") @db.Uuid
   loteId    String   @map("lote_id") @db.Uuid
