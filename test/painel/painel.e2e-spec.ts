@@ -198,6 +198,48 @@ describe('Painel de Indicadores (e2e)', () => {
       .get(`/v1/painel${path}`)
       .auth(token, { type: 'bearer' });
 
+  it('soma vendas válidas sem limitar o total à precisão de um único valor', async () => {
+    const escopo = { lote: { quadra: { loteamentoId: loteamentoAlpha.id } } };
+    await prisma.reserva.updateMany({
+      where: escopo,
+      data: {
+        status: 'CONVERTIDA',
+        updatedAt: new Date('2026-11-10T12:00:00Z'),
+      },
+    });
+    await prisma.proposta.updateMany({
+      where: { reserva: escopo },
+      data: {
+        status: 'APROVADA',
+        valor: '999999999999.99',
+        decididoPorId: gestor.id,
+        dataDecisao: new Date('2026-11-10T12:00:00Z'),
+        motivoDecisao: 'Aprovação do cenário de teste',
+      },
+    });
+    const resposta = await get(
+      gestor.token,
+      `/vendas?loteamentoId=${loteamentoAlpha.id}`,
+    ).expect(200);
+    expect(resposta.body).toMatchObject({
+      total: 2,
+      valorTotal: '1999999999999.98',
+    });
+    for (const nome of [
+      'porDia',
+      'porSemana',
+      'porMes',
+      'porPeriodo',
+      'porVendedor',
+    ]) {
+      expect(resposta.body[nome]).toHaveLength(1);
+      expect(resposta.body[nome][0]).toMatchObject({
+        quantidade: 2,
+        valorTotal: '1999999999999.98',
+      });
+    }
+  });
+
   describe('GET /v1/painel/resumo', () => {
     it('retorna contagem de lotes por status, geral e por loteamento', async () => {
       const res = await get(gestor.token, '/resumo').expect(200);

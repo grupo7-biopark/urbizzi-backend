@@ -229,7 +229,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       ${vendasCte}
       SELECT
         COUNT(*)::int AS "total",
-        COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal",
+        ROUND(COALESCE(SUM(valor), 0), 2)::text AS "valorTotal",
         COUNT(CASE WHEN "dataVenda" >= ${inicioHoje} THEN 1 END)::int AS "vendasHoje",
         COUNT(CASE WHEN "dataVenda" >= ${inicioSemana} THEN 1 END)::int AS "vendasSemana",
         COUNT(CASE WHEN "dataVenda" >= ${inicioMes} THEN 1 END)::int AS "vendasMes"
@@ -242,7 +242,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
         SELECT
           to_char("dataVenda" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS "data",
           COUNT(*)::int AS "quantidade",
-          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+          ROUND(COALESCE(SUM(valor), 0), 2)::text AS "valorTotal"
         FROM vendas
         GROUP BY 1
         ORDER BY 1 DESC
@@ -255,7 +255,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
         SELECT
           to_char("dataVenda" AT TIME ZONE 'UTC', 'IYYY') || '-W' || to_char("dataVenda" AT TIME ZONE 'UTC', 'IW') AS "semana",
           COUNT(*)::int AS "quantidade",
-          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+          ROUND(COALESCE(SUM(valor), 0), 2)::text AS "valorTotal"
         FROM vendas
         GROUP BY 1
         ORDER BY 1 DESC
@@ -268,7 +268,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
         SELECT
           to_char("dataVenda" AT TIME ZONE 'UTC', 'YYYY-MM') AS "mes",
           COUNT(*)::int AS "quantidade",
-          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+          ROUND(COALESCE(SUM(valor), 0), 2)::text AS "valorTotal"
         FROM vendas
         GROUP BY 1
         ORDER BY 1 DESC
@@ -282,7 +282,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
           "vendedorId"::text AS "vendedorId",
           "vendedorNome" AS "nome",
           COUNT(*)::int AS "quantidade",
-          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+          ROUND(COALESCE(SUM(valor), 0), 2)::text AS "valorTotal"
         FROM vendas
         WHERE "vendedorId" IS NOT NULL
         GROUP BY "vendedorId", "vendedorNome"

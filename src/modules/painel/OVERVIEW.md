@@ -14,6 +14,8 @@ Importa `LoteamentosModule` para validação de escopo opcional de loteamento at
 
 Todas as respostas possuem cabeçalho `Cache-Control: no-store` para assegurar que os indicadores reflitam o estado mais recente do banco de dados.
 
+Totais monetários são somados como `numeric` no PostgreSQL e retornados como texto com duas casas decimais. O agregado não recebe o limite de precisão de um único preço: a soma de vendas válidas pode ultrapassar os 12 dígitos inteiros permitidos por registro.
+
 ## Regras de Negócio e Comportamento
 
 1. **Acesso por perfil**:
