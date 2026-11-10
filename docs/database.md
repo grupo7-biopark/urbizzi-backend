@@ -389,3 +389,7 @@ A criação marca lotes.teve_reserva permanentemente. LoteService bloqueia a lin
 BE-34: marcadores.revisar é um booleano obrigatório com padrão false. O par (planta_id, lote_id) continua único. A cópia entre versões gera novos ids e conserva as coordenadas normalizadas.
 
 BE-20: propostas.data_encerramento e motivo_encerramento sao opcionais, preenchidos juntos pelo cancelamento confirmado. O CHECK propostas_encerramento_check exige motivo nao vazio quando encerrada. Status, decidido_por_id, data_decisao e motivo_decisao sao preservados; nenhuma decisao de gestor e atribuida ao vendedor que cancela.
+
+## Seed (BE-05)
+
+`npm run db:seed` popula perfis, prazos e administrador inicial após as migrations, sem modificar o schema. `npm run db:seed:dev` acrescenta exemplos fictícios e arquivos reais de mapa. Ambos são idempotentes e preservam registros existentes. O comando é configurado em `prisma7.config.ts`; variáveis, garantias e limites em [seed.md](seed.md).

@@ -24,7 +24,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",
-    "deploy": "nest deploy"
+    "deploy": "nest deploy",
+    "db:seed": "npm run build && prisma db seed",
+    "db:seed:dev": "npm run build && prisma db seed -- --development"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1158.0",

@@ -58,6 +58,12 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 
 Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em [storage.md](storage.md). Contrato `Storage` e token `STORAGE` ficam em `shared/application/storage`, com helper para geração de chaves. Os módulos consumidores importam `StorageModule` e injetam o contrato na camada application, sem importar AWS SDK. Esta infraestrutura técnica não possui tabela nem endpoints próprios.
 
+### Bootstrap e exemplos (BE-05)
+
+`src/seed/` contém comandos independentes, compilados pelo build e chamados pelo Prisma CLI (`migrations.seed` em `prisma7.config.ts`). Não é módulo de negócio, não é importado pelo AppModule e não inicia workers ou servidor HTTP. SeedRepository é uma exceção explícita, exclusiva do bootstrap, ao isolamento de tabelas: insere perfis, configurações e administrador e, opcionalmente, exemplos fictícios relacionados entre domínios. Nenhum módulo da aplicação pode importar esse repositório.
+
+runSeed valida a entrada, calcula Argon2id e prepara arquivos fora da transação. SeedRepository serializa execuções com advisory lock e insere somente registros ausentes numa única transação. Registros existentes nunca recebem promoção, senha nova, reativação ou redefinição de valores. O mapa de exemplo usa chaves de objetos e IDs estáveis; PNG/WebP reais são enviados antes de registrar uma planta PRONTA. Falha de banco pode deixar somente esses dois objetos de exemplo, reutilizados na próxima execução, sem crescimento de chaves. A planta ativa existente é preservada. Mais detalhes em [seed.md](seed.md).
+
 Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09): `JwtAuthGuard` e `PerfisGuard` globais, `@Public()`, `@CurrentUser()` e `@Perfis(...)`. A policy reutilizável `shared/domain/policies/propriedade.policy.ts` verifica Admin/Gestor ou Comercial responsável, sem depender do framework. Detalhes na [segurança](security.md).
 
 

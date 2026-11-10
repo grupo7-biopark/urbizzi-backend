@@ -100,6 +100,21 @@ jobs:
       - name: Testes e2e
         run: npm run test:e2e
 
+      - name: Validar comandos de seed e repetição
+        run: |
+          docker exec "${{ job.services.postgres.id }}" psql -U urbizzi -d postgres -c 'CREATE DATABASE urbizzi_seed_cli'
+          npm run db:deploy
+          npm run db:seed
+          npx prisma db seed
+          npm run db:seed:dev
+          npx prisma db seed -- --development
+        env:
+          DATABASE_URL: postgresql://urbizzi:urbizzi@localhost:5432/urbizzi_seed_cli?schema=public
+          NODE_ENV: development
+          SEED_ADMIN_EMAIL: admin.cli@desenvolvimento.example
+          SEED_ADMIN_SENHA: SenhaFicticiaExclusivaDoCI123!
+          SEED_DEV_SENHA: OutraSenhaFicticiaExclusivaDoCI123!
+
       - name: Encerrar Garage
         if: always()
         run: docker compose down

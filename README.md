@@ -159,6 +159,18 @@ docs/                arquitetura e padrões
 
 Os testes `test/auth/recuperacao-senha.e2e-spec.ts` usam Postgres real e substituem apenas o envio de e-mail por uma captura em memória. O teste `test/auth/mailpit.e2e-spec.ts` valida SMTP real quando `MAILPIT_E2E=true`; o CI sobe Mailpit e habilita essa verificação.
 
+## Popular o banco (BE-05)
+
+Depois das migrations, configure `SEED_ADMIN_EMAIL`, `SEED_ADMIN_SENHA` e,
+opcionalmente, `SEED_ADMIN_NOME` no ambiente ou `.env`; execute `npm run db:seed`.
+O seed cria perfis, prazos padrão e o administrador sem alterar dados existentes.
+
+Para os exemplos, configure também `NODE_ENV=development` e `SEED_DEV_SENHA`, suba
+Garage e execute `npm run db:seed:dev`. Inclui cadastros, contas por perfil,
+reservas/propostas e um mapa fictício com arquivos reais. Não há senha padrão nem
+reset de senha na repetição. Instruções, variáveis e contas de exemplo em
+[docs/seed.md](docs/seed.md).
+
 ## Gestão de usuários (BE-10)
 
 Somente Administrador pode usar `/v1/usuarios`. Crie com `POST` e corpo `{ "nome": "Maria Silva", "email": "maria@exemplo.com", "perfil": "COMERCIAL", "senha": "SenhaInicial123!" }`. Os perfis devem existir no banco. Liste com `GET /v1/usuarios?perfil=COMERCIAL&ativo=true&page=1&pageSize=20`, consulte por id e edite nome/e-mail/perfil com PATCH. Ative/desative com POST em `/:id/ativar` e `/:id/desativar`. Usuários não são excluídos fisicamente. Não é possível desativar ou rebaixar o último administrador ativo. Auditoria e contrato completo em `src/modules/usuarios/OVERVIEW.md`; exemplos interativos em `/docs`.
