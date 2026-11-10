@@ -41,13 +41,17 @@ function plantaEmProcessamento(originais = ['plantas/p/fatia_01_01.png']) {
   });
 }
 
+const tentativaId = 'a1b2c3d4-0000-4000-8000-000000000002';
+
 function setup() {
   const repository = {
     findById: vi.fn(),
     list: vi.fn(),
     proximaVersao: vi.fn(),
     create: vi.fn(),
-    update: vi.fn(),
+    atualizarAtivacao: vi.fn(),
+    reenfileirar: vi.fn(),
+    finalizarProcessamento: vi.fn().mockResolvedValue(true),
     reservarProxima: vi.fn(),
     findAtiva: vi.fn(),
     travarAtiva: vi.fn(),
@@ -111,7 +115,7 @@ describe('ProcessamentoPlantaService', () => {
       'plantas/p/fatia_01_01.png',
       'plantas/p/fatia_01_02.png',
     ]);
-    repository.reservarProxima.mockResolvedValue(planta);
+    repository.reservarProxima.mockResolvedValue({ planta, tentativaId });
 
     await expect(service.processarProxima()).resolves.toEqual({
       plantaId: planta.id,
@@ -130,23 +134,30 @@ describe('ProcessamentoPlantaService', () => {
     );
     // 600 x 400: 1 + 2 + 6 tiles; a chave usa z/x/y e o disco usa z/y/x.
     expect(enviados.size).toBe(9);
-    expect(enviados.get(`plantas/${planta.id}/2/2/1.webp`)).toBe('2/2/1');
-    expect(enviados.get(`plantas/${planta.id}/0/0/0.webp`)).toBe('0/0/0');
+    expect(enviados.get(`plantas/${planta.id}/${tentativaId}/2/2/1.webp`)).toBe(
+      '2/2/1',
+    );
+    expect(enviados.get(`plantas/${planta.id}/${tentativaId}/0/0/0.webp`)).toBe(
+      '0/0/0',
+    );
     expect(planta).toMatchObject({
       status: 'PRONTA',
       larguraPx: 600,
       alturaPx: 400,
       maxZoom: 2,
       tamanhoTile: 256,
-      tilesPath: `plantas/${planta.id}`,
+      tilesPath: `plantas/${planta.id}/${tentativaId}`,
     });
-    expect(repository.update).toHaveBeenCalledWith(planta);
+    expect(repository.finalizarProcessamento).toHaveBeenCalledWith(
+      planta,
+      tentativaId,
+    );
   });
 
   it('marca ERRO com mensagem genérica e remove a pasta temporária', async () => {
     const { service, repository, processador } = setup();
     const planta = plantaEmProcessamento();
-    repository.reservarProxima.mockResolvedValue(planta);
+    repository.reservarProxima.mockResolvedValue({ planta, tentativaId });
     let pasta = '';
     const falha = new Error('vips: detalhes internos');
     processador.gerarTiles.mockImplementation(async (_a, _c, destino) => {
@@ -164,14 +175,17 @@ describe('ProcessamentoPlantaService', () => {
     expect(planta.status).toBe('ERRO');
     expect(planta.mensagemErro).toContain('Não foi possível gerar os tiles');
     expect(planta.mensagemErro).not.toContain('vips');
-    expect(repository.update).toHaveBeenCalledWith(planta);
+    expect(repository.finalizarProcessamento).toHaveBeenCalledWith(
+      planta,
+      tentativaId,
+    );
     expect(existsSync(pasta)).toBe(false);
   });
 
   it('usa a mensagem de erros de domínio', async () => {
     const { service, repository, processador } = setup();
     const planta = plantaEmProcessamento();
-    repository.reservarProxima.mockResolvedValue(planta);
+    repository.reservarProxima.mockResolvedValue({ planta, tentativaId });
     processador.gerarTiles.mockRejectedValue(
       new BusinessRuleError('X', 'Mensagem de negócio'),
     );
@@ -183,7 +197,10 @@ describe('ProcessamentoPlantaService', () => {
 
   it('para de enviar tiles na primeira falha', async () => {
     const { service, repository, storage } = setup();
-    repository.reservarProxima.mockResolvedValue(plantaEmProcessamento());
+    repository.reservarProxima.mockResolvedValue({
+      planta: plantaEmProcessamento(),
+      tentativaId,
+    });
     storage.upload.mockImplementation(async ({ body }: UploadInput) => {
       (body as Readable).destroy();
       throw new Error('armazenamento fora');
@@ -198,7 +215,10 @@ describe('ProcessamentoPlantaService', () => {
 
   it('aguarda os uploads em andamento antes de limpar os temporários', async () => {
     const { service, repository, storage } = setup();
-    repository.reservarProxima.mockResolvedValue(plantaEmProcessamento());
+    repository.reservarProxima.mockResolvedValue({
+      planta: plantaEmProcessamento(),
+      tentativaId,
+    });
     let liberar!: () => void;
     let iniciou!: () => void;
     const iniciado = new Promise<void>((resolve) => {
@@ -218,20 +238,21 @@ describe('ProcessamentoPlantaService', () => {
     await iniciado;
     try {
       await new Promise<void>((resolve) => setImmediate(resolve));
-      expect(repository.update).not.toHaveBeenCalled();
+      expect(repository.finalizarProcessamento).not.toHaveBeenCalled();
     } finally {
       liberar();
       await processamento;
     }
-    expect(repository.update).toHaveBeenCalledWith(
+    expect(repository.finalizarProcessamento).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'ERRO' }),
+      tentativaId,
     );
   });
 
   it('falha se o original não puder ser baixado', async () => {
     const { service, repository, storage, processador } = setup();
     const planta = plantaEmProcessamento();
-    repository.reservarProxima.mockResolvedValue(planta);
+    repository.reservarProxima.mockResolvedValue({ planta, tentativaId });
     storage.download.mockRejectedValue(new Error('sem acesso'));
 
     await expect(service.processarProxima()).resolves.toMatchObject({

@@ -27,7 +27,9 @@ function setup(metadados: Record<string, MetadadosImagem | null> = {}) {
     list: vi.fn(),
     proximaVersao: vi.fn().mockResolvedValue(3),
     create: vi.fn(),
-    update: vi.fn(),
+    atualizarAtivacao: vi.fn(),
+    reenfileirar: vi.fn().mockResolvedValue(true),
+    finalizarProcessamento: vi.fn(),
     reservarProxima: vi.fn(),
     findAtiva: vi.fn(),
     travarAtiva: vi.fn(),
@@ -241,7 +243,7 @@ describe('PlantaService', () => {
       const dto = await service.reprocessar(planta.id, usuario);
 
       expect(dto).toMatchObject({ status: 'ENVIADA', mensagemErro: null });
-      expect(repository.update).toHaveBeenCalledWith(planta, {});
+      expect(repository.reenfileirar).toHaveBeenCalledWith(planta, {});
       expect(auditoria.registrar).toHaveBeenCalledWith(
         expect.objectContaining({
           acao: 'REPROCESSAR',
@@ -258,7 +260,7 @@ describe('PlantaService', () => {
       await expect(service.reprocessar('id', usuario)).rejects.toMatchObject({
         code: 'PLANTA_NAO_REPROCESSAVEL',
       });
-      expect(repository.update).not.toHaveBeenCalled();
+      expect(repository.reenfileirar).not.toHaveBeenCalled();
     });
 
     it('retorna 404 para planta inexistente', async () => {
@@ -302,7 +304,7 @@ describe('PlantaService', () => {
 
       expect(dto).toMatchObject({ id: nova.id, ativa: true });
       expect(anterior.ativa).toBe(false);
-      expect(repository.update.mock.calls.map(([p]) => p)).toEqual([
+      expect(repository.atualizarAtivacao.mock.calls.map(([p]) => p)).toEqual([
         anterior,
         nova,
       ]);
@@ -325,7 +327,7 @@ describe('PlantaService', () => {
 
       await service.ativar(nova.id, usuario);
 
-      expect(repository.update).toHaveBeenCalledTimes(1);
+      expect(repository.atualizarAtivacao).toHaveBeenCalledTimes(1);
       expect(auditoria.registrar).toHaveBeenCalledTimes(1);
     });
 
@@ -338,7 +340,7 @@ describe('PlantaService', () => {
       await expect(service.ativar(atual.id, usuario)).resolves.toMatchObject({
         ativa: true,
       });
-      expect(repository.update).not.toHaveBeenCalled();
+      expect(repository.atualizarAtivacao).not.toHaveBeenCalled();
       expect(auditoria.registrar).not.toHaveBeenCalled();
     });
 
@@ -361,7 +363,7 @@ describe('PlantaService', () => {
         code: 'PLANTA_NAO_PRONTA',
       });
       expect(anterior.ativa).toBe(true);
-      expect(repository.update).not.toHaveBeenCalled();
+      expect(repository.atualizarAtivacao).not.toHaveBeenCalled();
     });
 
     it('devolve a planta ativa com o modelo de URL dos tiles', async () => {

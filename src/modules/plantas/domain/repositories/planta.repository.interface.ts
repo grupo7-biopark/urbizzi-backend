@@ -24,13 +24,16 @@ export interface PlantaRepository {
    */
   travarAtiva(tx: PrismaTransaction): Promise<Planta | null>;
   create(planta: Planta, tx?: PrismaTransaction): Promise<void>;
-  update(planta: Planta, tx?: PrismaTransaction): Promise<void>;
+  atualizarAtivacao(planta: Planta, tx: PrismaTransaction): Promise<void>;
+  reenfileirar(planta: Planta, tx: PrismaTransaction): Promise<boolean>;
   /**
    * Retira da fila a planta ENVIADA mais antiga e a marca como PROCESSANDO
    * numa única operação atômica (`FOR UPDATE SKIP LOCKED`), para duas
-   * instâncias da API nunca processarem a mesma planta.
+   * instâncias da API nunca assumirem a mesma tentativa.
    */
-  reservarProxima(): Promise<Planta | null>;
+  reservarProxima(): Promise<{ planta: Planta; tentativaId: string } | null>;
+  /** Publica o resultado somente se a tentativa ainda possuir a planta. */
+  finalizarProcessamento(planta: Planta, tentativaId: string): Promise<boolean>;
   /**
    * Marca como ERRO as plantas PROCESSANDO desde antes de `iniciadasAntesDe`
    * (processo encerrado no meio do trabalho). Devolve quantas marcou.

@@ -385,6 +385,7 @@ erDiagram
     int tamanho_tile
     text mensagem_erro
     timestamptz processamento_iniciado_em
+    uuid processamento_tentativa_id "dono da tentativa atual"
     boolean ativa "só uma ativa"
     uuid criado_por_id FK
   }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type {
   Planta as PlantaRecord,
@@ -84,31 +85,68 @@ export class PrismaPlantaRepository implements PlantaRepository {
     });
   }
 
-  async update(planta: Planta, tx?: PrismaTransaction): Promise<void> {
-    const db = tx ?? this.prisma;
-    await db.planta.update({
+  async atualizarAtivacao(
+    planta: Planta,
+    tx: PrismaTransaction,
+  ): Promise<void> {
+    await tx.planta.update({
       where: { id: planta.id },
-      data: {
-        nome: planta.nome,
-        status: planta.status,
-        larguraPx: planta.larguraPx,
-        alturaPx: planta.alturaPx,
-        tilesPath: planta.tilesPath,
-        maxZoom: planta.maxZoom,
-        tamanhoTile: planta.tamanhoTile,
-        mensagemErro: planta.mensagemErro,
-        processamentoIniciadoEm: planta.processamentoIniciadoEm,
-        ativa: planta.ativa,
-        updatedAt: planta.updatedAt,
-      },
+      data: { ativa: planta.ativa, updatedAt: planta.updatedAt },
     });
   }
 
-  async reservarProxima(): Promise<Planta | null> {
+  async reenfileirar(planta: Planta, tx: PrismaTransaction): Promise<boolean> {
+    const { count } = await tx.planta.updateMany({
+      where: { id: planta.id, status: 'ERRO' },
+      data: {
+        status: 'ENVIADA',
+        mensagemErro: null,
+        processamentoIniciadoEm: null,
+        processamentoTentativaId: null,
+        updatedAt: planta.updatedAt,
+      },
+    });
+    return count === 1;
+  }
+
+  async finalizarProcessamento(
+    planta: Planta,
+    tentativaId: string,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.planta.updateMany({
+      where: {
+        id: planta.id,
+        status: 'PROCESSANDO',
+        processamentoTentativaId: tentativaId,
+      },
+      data: {
+        status: planta.status,
+        ...(planta.status === 'PRONTA' && {
+          larguraPx: planta.larguraPx,
+          alturaPx: planta.alturaPx,
+          tilesPath: planta.tilesPath,
+          maxZoom: planta.maxZoom,
+          tamanhoTile: planta.tamanhoTile,
+        }),
+        mensagemErro: planta.mensagemErro,
+        processamentoIniciadoEm: null,
+        processamentoTentativaId: null,
+        updatedAt: planta.updatedAt,
+      },
+    });
+    return count === 1;
+  }
+
+  async reservarProxima(): Promise<{
+    planta: Planta;
+    tentativaId: string;
+  } | null> {
+    const tentativaId = randomUUID();
     const [reservada] = await this.prisma.$queryRaw<{ id: string }[]>`
       UPDATE plantas
       SET status = 'PROCESSANDO',
           processamento_iniciado_em = now(),
+          processamento_tentativa_id = ${tentativaId}::uuid,
           mensagem_erro = NULL,
           updated_at = now()
       WHERE id = (
@@ -120,7 +158,11 @@ export class PrismaPlantaRepository implements PlantaRepository {
       )
       RETURNING id
     `;
-    return reservada ? this.findById(reservada.id) : null;
+    if (!reservada) return null;
+    const row = await this.prisma.planta.findUnique({
+      where: { id: reservada.id, processamentoTentativaId: tentativaId },
+    });
+    return row ? { planta: this.toEntity(row), tentativaId } : null;
   }
 
   async marcarInterrompidas(
@@ -136,6 +178,7 @@ export class PrismaPlantaRepository implements PlantaRepository {
         status: 'ERRO',
         mensagemErro: mensagem,
         processamentoIniciadoEm: null,
+        processamentoTentativaId: null,
       },
     });
     return count;

@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/application/storage/storage.interface.js';
 import {
   BusinessRuleError,
+  ConflictError,
   InvalidInputError,
   NotFoundError,
 } from '../../../../shared/domain/errors/domain.error.js';
@@ -161,7 +162,12 @@ export class PlantaService {
       const atual = await this.getOrFail(id, tx);
       const anterior = { ...atual.auditoria };
       atual.reprocessar();
-      await this.plantaRepository.update(atual, tx);
+      if (!(await this.plantaRepository.reenfileirar(atual, tx))) {
+        throw new ConflictError(
+          'PLANTA_NAO_REPROCESSAVEL',
+          'Só é possível reprocessar uma planta com erro',
+        );
+      }
       await this.auditoriaService.registrar(
         {
           usuarioId: usuario.id,
@@ -187,7 +193,7 @@ export class PlantaService {
       nova.ativar();
       if (anterior) {
         anterior.desativar();
-        await this.plantaRepository.update(anterior, tx);
+        await this.plantaRepository.atualizarAtivacao(anterior, tx);
         await this.auditoriaService.registrar(
           {
             usuarioId: usuario.id,
@@ -200,7 +206,7 @@ export class PlantaService {
           tx,
         );
       }
-      await this.plantaRepository.update(nova, tx);
+      await this.plantaRepository.atualizarAtivacao(nova, tx);
       await this.auditoriaService.registrar(
         {
           usuarioId: usuario.id,

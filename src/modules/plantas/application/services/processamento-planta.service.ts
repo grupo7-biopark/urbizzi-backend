@@ -46,7 +46,7 @@ export interface ResultadoProcessamento {
 
 /**
  * Consome a fila de plantas ENVIADA: baixa os originais, gera a pirâmide de
- * tiles e envia ao bucket `plantas-tiles` em `plantas/<id>/<z>/<x>/<y>.webp`.
+ * tiles e publica somente o prefixo da tentativa que ainda possui a planta.
  */
 @Injectable()
 export class ProcessamentoPlantaService {
@@ -59,34 +59,50 @@ export class ProcessamentoPlantaService {
   ) {}
 
   /**
-   * Processa a próxima planta da fila. Devolve null se a fila estiver vazia.
-   * Nunca lança por falha da planta: ela fica com status ERRO.
+   * Devolve null se a fila estiver vazia ou a tentativa perder a reserva.
+   * Uma falha de processamento só marca ERRO enquanto a tentativa for dona.
    */
   async processarProxima(): Promise<ResultadoProcessamento | null> {
     await this.plantaRepository.marcarInterrompidas(
       new Date(Date.now() - TEMPO_MAXIMO_PROCESSAMENTO_MS),
       MENSAGEM_INTERROMPIDO,
     );
-    const planta = await this.plantaRepository.reservarProxima();
-    if (!planta) return null;
+    const tentativa = await this.plantaRepository.reservarProxima();
+    if (!tentativa) return null;
+    const { planta, tentativaId } = tentativa;
 
-    const pasta = await mkdtemp(join(tmpdir(), 'urbizzi-planta-'));
+    let pasta: string | undefined;
+    let resultado: ResultadoProcessamento;
     try {
-      await this.processar(planta, pasta);
-      await this.plantaRepository.update(planta);
-      return { plantaId: planta.id, status: 'PRONTA' };
-    } catch (erro) {
-      planta.falharProcessamento(
-        erro instanceof DomainError ? erro.message : MENSAGEM_FALHA,
+      try {
+        pasta = await mkdtemp(join(tmpdir(), 'urbizzi-planta-'));
+        await this.processar(
+          planta,
+          pasta,
+          `plantas/${planta.id}/${tentativaId}`,
+        );
+        resultado = { plantaId: planta.id, status: 'PRONTA' };
+      } catch (erro) {
+        planta.falharProcessamento(
+          erro instanceof DomainError ? erro.message : MENSAGEM_FALHA,
+        );
+        resultado = { plantaId: planta.id, status: 'ERRO', erro };
+      }
+      const publicado = await this.plantaRepository.finalizarProcessamento(
+        planta,
+        tentativaId,
       );
-      await this.plantaRepository.update(planta);
-      return { plantaId: planta.id, status: 'ERRO', erro };
+      return publicado ? resultado : null;
     } finally {
-      await rm(pasta, { recursive: true, force: true });
+      if (pasta) await rm(pasta, { recursive: true, force: true });
     }
   }
 
-  private async processar(planta: Planta, pasta: string): Promise<void> {
+  private async processar(
+    planta: Planta,
+    pasta: string,
+    tilesPath: string,
+  ): Promise<void> {
     const arquivos: string[] = [];
     for (const [i, chave] of planta.originais.entries()) {
       const arquivo = join(pasta, `original-${i}`);
@@ -105,7 +121,6 @@ export class ProcessamentoPlantaService {
       TAMANHO_TILE,
     );
     const piramide = calcularPiramide(largura, altura, TAMANHO_TILE);
-    const tilesPath = `plantas/${planta.id}`;
     await this.enviarTiles(piramide, destino, tilesPath);
 
     planta.concluirProcessamento({
