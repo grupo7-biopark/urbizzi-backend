@@ -32,9 +32,12 @@ describe('ImportacaoLotesService', () => {
     ler: ReturnType<typeof vi.fn>;
     gerar: ReturnType<typeof vi.fn>;
   };
-  let loteamentos: Record<'findByNomes' | 'create', ReturnType<typeof vi.fn>>;
+  let loteamentos: Record<
+    'findByNomes' | 'create' | 'travarExistentes',
+    ReturnType<typeof vi.fn>
+  >;
   let quadras: Record<
-    'findByLoteamentoIds' | 'create',
+    'findByLoteamentoIds' | 'create' | 'travarExistentes',
     ReturnType<typeof vi.fn>
   >;
   let lotes: Record<'findByQuadraIds' | 'createMany', ReturnType<typeof vi.fn>>;
