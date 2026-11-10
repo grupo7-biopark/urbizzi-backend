@@ -1,4 +1,6 @@
 import { MapaService } from './application/services/mapa.service.js';
+import { MAPA_EVENTOS_FONTE } from './domain/repositories/mapa-eventos-fonte.interface.js';
+import { PgMapaEventosFonte } from './infra/repositories/pg-mapa-eventos-fonte.js';
 import { MAPA_CONSULTA_REPOSITORY } from './domain/repositories/mapa-consulta.repository.interface.js';
 import { PrismaMapaConsultaRepository } from './infra/repositories/prisma-mapa-consulta.repository.js';
 import { MapaController } from './infra/controllers/mapa.controller.js';
@@ -10,6 +12,7 @@ import { MarcadorService } from './application/services/marcador.service.js';
 import { AcervoMarcadoresModule } from './acervo-marcadores.module.js';
 
 import { MarcadoresController } from './infra/controllers/marcadores.controller.js';
+import { MapaEventosService } from './application/services/mapa-eventos.service.js';
 @Module({
   imports: [
     AcervoMarcadoresModule,
@@ -19,6 +22,8 @@ import { MarcadoresController } from './infra/controllers/marcadores.controller.
   ],
   controllers: [MarcadoresController, MapaController],
   providers: [
+    MapaEventosService,
+    { provide: MAPA_EVENTOS_FONTE, useClass: PgMapaEventosFonte },
     MarcadorService,
     MapaService,
     {
@@ -26,6 +31,6 @@ import { MarcadoresController } from './infra/controllers/marcadores.controller.
       useClass: PrismaMapaConsultaRepository,
     },
   ],
-  exports: [MarcadorService, MapaService],
+  exports: [MapaEventosService, MarcadorService, MapaService],
 })
 export class MapaModule {}
