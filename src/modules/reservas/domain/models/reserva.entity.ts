@@ -44,6 +44,35 @@ export class Reserva {
   static restore(props: ReservaProps): Reserva {
     return new Reserva({ ...props });
   }
+  renovar(dias: number, agora = new Date()): void {
+    this.assertAtiva();
+    if (this.props.dataVencimento <= agora)
+      throw new ConflictError('RESERVA_VENCIDA', 'A reserva já venceu');
+    const dataVencimento = new Date(
+      this.props.dataVencimento.getTime() + dias * 86400000,
+    );
+    if (
+      !Number.isSafeInteger(dias) ||
+      dias < 1 ||
+      !Number.isFinite(dataVencimento.getTime())
+    )
+      throw new BusinessRuleError(
+        'CONFIGURACAO_INVALIDA',
+        'Prazo de reserva inválido',
+      );
+    this.props = { ...this.props, dataVencimento };
+  }
+
+  cancelar(): void {
+    this.assertAtiva();
+    this.props = { ...this.props, status: 'CANCELADA' };
+  }
+
+  private assertAtiva(): void {
+    if (this.props.status !== 'ATIVA')
+      throw new ConflictError('RESERVA_NAO_ATIVA', 'A reserva não está ativa');
+  }
+
   expirar(agora: Date): void {
     if (this.props.status !== 'ATIVA' || this.props.dataVencimento > agora)
       throw new ConflictError(

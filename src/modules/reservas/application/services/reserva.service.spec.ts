@@ -1,3 +1,4 @@
+import type { EncerramentoPropostasService } from '../../../propostas/application/services/encerramento-propostas.service.js';
 import { ReservaService } from './reserva.service.js';
 import { Reserva } from '../../domain/models/reserva.entity.js';
 import type { LoteService } from '../../../loteamentos/application/services/lote.service.js';
@@ -13,12 +14,22 @@ describe('ReservaService', () => {
     travarAtivaPorLote: vi.fn(),
     findPropostaAprovada: vi.fn(),
     converter: vi.fn(),
+    renovar: vi.fn(),
+    cancelar: vi.fn(),
+    contarRenovacoes: vi.fn(),
+    listarRenovacoes: vi.fn(),
   };
-  const lotes = { reservar: vi.fn(), findById: vi.fn(), vender: vi.fn() };
+  const lotes = {
+    reservar: vi.fn(),
+    findById: vi.fn(),
+    vender: vi.fn(),
+    liberarReserva: vi.fn(),
+  };
   const clientes = { validarExistencia: vi.fn() };
-  const config = { getPrazoReservaDias: vi.fn() };
+  const config = { getPrazoReservaDias: vi.fn(), getLimiteRenovacoes: vi.fn() };
   const audit = { registrar: vi.fn() };
   const tx = {} as PrismaTransaction;
+  const encerramento = { porCancelamento: vi.fn() };
   const service = new ReservaService(
     repository,
     lotes as unknown as LoteService,
@@ -28,6 +39,7 @@ describe('ReservaService', () => {
     {
       run: (fn: (tx: PrismaTransaction) => Promise<unknown>) => fn(tx),
     } as TransactionManager,
+    encerramento as unknown as EncerramentoPropostasService,
   );
   const u = {
     id: 'v',
@@ -115,6 +127,52 @@ describe('ReservaService', () => {
         tx,
       );
     });
+  });
+
+  it('renova no mesmo tx e aplica o limite configurado', async () => {
+    const reserva = Reserva.create({ ...dto, vendedorId: u.id }, 7);
+    const anterior = reserva.dados.dataVencimento;
+    repository.findById.mockResolvedValue(reserva);
+    config.getLimiteRenovacoes.mockResolvedValue(1);
+    repository.contarRenovacoes
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0);
+    await expect(service.renovar('r', u)).rejects.toMatchObject({
+      code: 'LIMITE_RENOVACOES_ATINGIDO',
+    });
+    expect(repository.renovar).not.toHaveBeenCalled();
+    repository.findById.mockResolvedValue(
+      Reserva.restore({ ...reserva.dados, dataVencimento: anterior }),
+    );
+    await service.renovar('r', u);
+    expect(repository.renovar).toHaveBeenCalledWith(
+      expect.any(Reserva),
+      anterior,
+      u.id,
+      tx,
+    );
+  });
+
+  it('cancela, libera o lote e audita propostas encerradas no mesmo tx', async () => {
+    repository.findById.mockResolvedValue(
+      Reserva.create({ ...dto, vendedorId: u.id }, 7),
+    );
+    repository.cancelar.mockResolvedValue(['proposta']);
+    const resultado = await service.cancelar(
+      'r',
+      { motivo: 'Desistência', confirmar: true },
+      u,
+    );
+    expect(resultado.status).toBe('CANCELADA');
+    expect(repository.cancelar).toHaveBeenCalledWith('r', 'Desistência', tx);
+    expect(encerramento.porCancelamento).toHaveBeenCalledWith(
+      'r',
+      u.id,
+      true,
+      'Desistência',
+      tx,
+    );
+    expect(lotes.liberarReserva).toHaveBeenCalledWith(dto.loteId, tx, u.id);
   });
 
   it('propaga falha de auditoria para rollback', async () => {

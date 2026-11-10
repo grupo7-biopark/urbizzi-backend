@@ -32,4 +32,12 @@ Projeção de elegibilidade só lê a existência de aprovação em propostas, e
 
 Logs contêm somente quantidades e erros genéricos. RESERVA_NAO_VENCIDA protege domínio contra expiração antecipada/repetida. A dependência @nestjs/schedule é a ferramenta pedida pela issue; sem nova tabela/migration/variável de ambiente.
 
+## Renovação e cancelamento (BE-20)
+
+POST /v1/reservas/:id/renovar soma o prazo configurado ao vencimento anterior, somente ATIVA e antes de vencer. A chave opcional limite_renovacoes aceita inteiro maior ou igual a zero; ausente significa sem limite. GET /v1/reservas/:id/renovacoes pagina os registros, com autor e vencimentos anterior/novo. As duas rotas e o cancelamento usam propriedade e lock da reserva; Comercial so altera as proprias.
+
+POST /v1/reservas/:id/cancelar exige motivo. Se ha proposta EM_ANALISE ou APROVADA aberta, exige confirmar=true. EncerramentoPropostasService registra dataEncerramento e motivoEncerramento SEM substituir status, gestor, data ou motivo da decisao original. Uma proposta encerrada sai das pendencias, nao sinaliza atraso e nao pode ser decidida novamente (PROPOSTA_ENCERRADA, 409). O estado operacional encerrada e separado da decisao historica. Reserva, lote, propostas e auditoria compartilham a mesma transacao; motivo tambem e persistido na reserva.
+
+EncerramentoPropostasModule pertence a propostas, importa somente auditoria e exporta seu service para reservas, sem ciclo com PropostasModule. Nenhum repositorio de reservas escreve propostas. A migracao acrescenta somente os campos independentes de encerramento em propostas. Falhas de auditoria desfazem todas as alteracoes. Concorrencia com renovacao, expiracao e venda usa o lock de reserva ja existente.
+
 BE-23 consome ReservaService.findById(id, usuario, tx) para autorizar e bloquear a reserva antes de criar propostas. A aprovação e os demais comandos continuam sujeitos à mesma ordem de bloqueios documentada.

@@ -159,16 +159,20 @@ export class LoteService {
     );
   }
 
-  async liberarReserva(id: string, tx: PrismaTransaction): Promise<void> {
+  async liberarReserva(
+    id: string,
+    tx: PrismaTransaction,
+    usuarioId: string | null = null,
+  ): Promise<void> {
     const lote = await this.getOrFail(id, tx);
     lote.liberarReserva();
     await this.loteRepository.alterarStatus(id, 'RESERVADO', 'DISPONIVEL', tx);
     await this.auditoriaService.registrar(
       {
-        usuarioId: null,
+        usuarioId,
         entidadeTipo: 'Lote',
         entidadeId: id,
-        acao: 'EXPIRAR_RESERVA',
+        acao: usuarioId ? 'CANCELAR_RESERVA' : 'EXPIRAR_RESERVA',
         valorAnterior: { status: 'RESERVADO' },
         valorNovo: { status: 'DISPONIVEL' },
       },

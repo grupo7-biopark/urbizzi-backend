@@ -37,3 +37,7 @@ Auditoria:
 - Condições, observações e dados pessoais de cliente não são enviados à auditoria. Falha na auditoria desfaz a operação.
 
 Erros de entrada 400 DADOS_INVALIDOS/PROPOSTA_INVALIDA/MOTIVO_OBRIGATORIO. Autenticação 401 e autorização 403 ACESSO_NEGADO. Recursos ausentes 404 PROPOSTA_NAO_ENCONTRADA/RESERVA_NAO_ENCONTRADA. Conflitos 409 RESERVA_INVALIDA_PARA_PROPOSTA, PROPOSTA_EM_ANALISE, PROPOSTA_JA_APROVADA e PROPOSTA_JA_DECIDIDA. Configuração inválida retorna os erros existentes do módulo de configurações (422).
+
+## Encerramento por cancelamento da reserva (BE-20)
+
+EncerramentoPropostasModule exporta EncerramentoPropostasService para reservas sem importar ReservasModule. Apos bloquear a reserva, cancelar exige confirmacao para propostas EM_ANALISE/APROVADA e grava dataEncerramento/motivoEncerramento no repositorio dono. A decisao original e preservada. DTO informa encerrada e os campos independentes de encerramento; encerradas nao entram na fila de pendentes nem sinalizam atraso. Aprovar ou rejeitar encerrada retorna 409 PROPOSTA_ENCERRADA. Auditoria da proposta e da reserva participa do mesmo commit.

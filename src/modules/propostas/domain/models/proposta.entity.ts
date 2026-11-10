@@ -18,6 +18,8 @@ export interface PropostaProps {
   decididoPorId: string | null;
   dataDecisao: Date | null;
   motivoDecisao: string | null;
+  dataEncerramento?: Date | null;
+  motivoEncerramento?: string | null;
 }
 
 export class Proposta {
@@ -67,6 +69,8 @@ export class Proposta {
     decididoPorId?: string | null;
     dataDecisao?: Date | null;
     motivoDecisao?: string | null;
+    dataEncerramento?: Date | null;
+    motivoEncerramento?: string | null;
   }): Proposta {
     return new Proposta({
       ...props,
@@ -79,6 +83,11 @@ export class Proposta {
   }
 
   aprovar(gestorId: string, motivo: string, agora = new Date()): void {
+    if (this.props.dataEncerramento)
+      throw new ConflictError(
+        'PROPOSTA_ENCERRADA',
+        'A proposta foi encerrada pelo cancelamento da reserva',
+      );
     if (this.props.status !== 'EM_ANALISE')
       throw new ConflictError(
         'PROPOSTA_JA_DECIDIDA',
@@ -99,6 +108,11 @@ export class Proposta {
   }
 
   rejeitar(gestorId: string, motivo: string, agora = new Date()): void {
+    if (this.props.dataEncerramento)
+      throw new ConflictError(
+        'PROPOSTA_ENCERRADA',
+        'A proposta foi encerrada pelo cancelamento da reserva',
+      );
     if (this.props.status !== 'EM_ANALISE')
       throw new ConflictError(
         'PROPOSTA_JA_DECIDIDA',
@@ -120,7 +134,9 @@ export class Proposta {
 
   isAtrasada(agora = new Date()): boolean {
     return (
-      this.props.status === 'EM_ANALISE' && this.props.prazoLimite <= agora
+      !this.props.dataEncerramento &&
+      this.props.status === 'EM_ANALISE' &&
+      this.props.prazoLimite <= agora
     );
   }
 

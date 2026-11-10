@@ -379,7 +379,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       JOIN reservas r ON r.id = p.reserva_id
       JOIN lotes l ON l.id = r.lote_id
       JOIN quadras q ON q.id = l.quadra_id
-      WHERE p.status = 'EM_ANALISE'
+      WHERE p.status = 'EM_ANALISE' AND p.data_encerramento IS NULL
       ${filtros.vendedorId ? Prisma.sql`AND p.vendedor_id = ${filtros.vendedorId}::uuid` : Prisma.empty}
       ${filtros.loteamentoId ? Prisma.sql`AND q.loteamento_id = ${filtros.loteamentoId}::uuid` : Prisma.empty}
       ${filtros.dataDe ? Prisma.sql`AND p.data_envio >= ${filtros.dataDe}` : Prisma.empty}

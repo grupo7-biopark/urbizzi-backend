@@ -33,3 +33,24 @@ describe('Reserva', () => {
     },
   );
 });
+
+describe('comandos da reserva', () => {
+  const inicio = new Date('2026-11-05T12:00:00Z');
+  const criar = () =>
+    Reserva.create({ loteId: 'l', clienteId: 'c', vendedorId: 'v' }, 2, inicio);
+  it('estende a partir do vencimento original', () => {
+    const reserva = criar();
+    reserva.renovar(3, inicio);
+    expect(reserva.dados.dataVencimento.toISOString()).toBe(
+      '2026-11-10T12:00:00.000Z',
+    );
+  });
+  it('recusa renovar no vencimento ou depois de cancelar', () => {
+    const reserva = criar();
+    expect(() => reserva.renovar(1, reserva.dados.dataVencimento)).toThrow();
+    reserva.cancelar();
+    expect(reserva.dados.status).toBe('CANCELADA');
+    expect(() => reserva.renovar(1, inicio)).toThrow();
+    expect(() => reserva.cancelar()).toThrow();
+  });
+});

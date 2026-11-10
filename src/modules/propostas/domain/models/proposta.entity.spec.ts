@@ -1,6 +1,31 @@
 import { Proposta } from './proposta.entity.js';
 
 describe('Proposta', () => {
+  it('não decide nem sinaliza atraso em proposta encerrada', () => {
+    const dados = Proposta.create(
+      {
+        reservaId: 'r',
+        vendedorId: 'v',
+        valor: '10',
+        condicoes: 'À vista',
+        observacoes: null,
+      },
+      1,
+      new Date('2026-01-01T12:00:00Z'),
+    ).dados;
+    const p = Proposta.restore({
+      ...dados,
+      dataEncerramento: new Date(),
+      motivoEncerramento: 'Cancelamento',
+    });
+    expect(p.isAtrasada()).toBe(false);
+    expect(() => p.aprovar('g', 'Motivo')).toThrow(
+      expect.objectContaining({ code: 'PROPOSTA_ENCERRADA' }),
+    );
+    expect(() => p.rejeitar('g', 'Motivo')).toThrow(
+      expect.objectContaining({ code: 'PROPOSTA_ENCERRADA' }),
+    );
+  });
   const input = {
     reservaId: 'r',
     vendedorId: 'v',
