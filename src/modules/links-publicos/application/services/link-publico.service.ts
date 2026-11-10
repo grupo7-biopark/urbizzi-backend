@@ -96,7 +96,7 @@ export class LinkPublicoService {
     });
     return link.dados;
   }
-  /** Usado pelo mapa público: valida ativo e incrementa atomicamente. */
+  /** Revalida canais SSE sem incrementar o contador de acessos. */
   async estaAtivo(id: string): Promise<boolean> {
     return (await this.repository.findById(id))?.dados.ativo === true;
   }

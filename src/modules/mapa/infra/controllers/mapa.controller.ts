@@ -26,6 +26,8 @@ export class MapaController {
 
   /** Fluxo SSE com mudanças confirmadas de status dos lotes */
   @Sse('eventos')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Accel-Buffering', 'no')
   @ApiOkResponse({
     content: { 'text/event-stream': { schema: { type: 'string' } } },
   })

@@ -15,7 +15,15 @@ import { PaginationQueryDto } from '../../../../shared/application/dto/paginatio
 import { ApiErrorResponses } from '../../../../shared/infra/http/swagger/api-error-responses.decorator.js';
 import { MapaPublicoDto } from '../../application/dto/mapa-publico.dto.js';
 import { MapaPublicoService } from '../../application/services/mapa-publico.service.js';
-import { concatMap, from, takeWhile, map, type Observable } from 'rxjs';
+import {
+  concatMap,
+  from,
+  takeWhile,
+  map,
+  catchError,
+  EMPTY,
+  type Observable,
+} from 'rxjs';
 import { MapaEventosService } from '../../../mapa/application/services/mapa-eventos.service.js';
 import { LinkPublicoService } from '../../application/services/link-publico.service.js';
 @ApiTags('mapa público')
@@ -32,6 +40,8 @@ export class MapaPublicoController {
 
   /** Fluxo SSE limitado ao loteamento do link público. */
   @Sse(':token/eventos')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Accel-Buffering', 'no')
   @Header('Referrer-Policy', 'no-referrer')
   @ApiOkResponse({
     content: { 'text/event-stream': { schema: { type: 'string' } } },
@@ -49,6 +59,7 @@ export class MapaPublicoController {
       ),
       takeWhile(({ ativo }) => ativo),
       map(({ evento }) => evento),
+      catchError(() => EMPTY),
     );
   }
   /** Consulta somente leitura por token ativo, sem dados internos; até 60 acessos por IP por minuto */
