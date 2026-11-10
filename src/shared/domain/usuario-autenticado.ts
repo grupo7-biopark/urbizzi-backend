@@ -4,7 +4,12 @@ export interface UsuarioAutenticado {
   email: string;
   perfil: 'ADMINISTRADOR' | 'GESTOR' | 'COMERCIAL' | 'CONSULTA';
 }
+export interface CredencialAutenticada {
+  usuario: UsuarioAutenticado;
+  expiraEmMs: number;
+}
+
 export const AUTENTICADOR = Symbol('AUTENTICADOR');
 export interface Autenticador {
-  autenticarToken(token: string): Promise<UsuarioAutenticado>;
+  autenticarToken(token: string): Promise<CredencialAutenticada>;
 }

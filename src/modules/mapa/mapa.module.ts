@@ -8,6 +8,7 @@ import { Module } from '@nestjs/common';
 import { PlantasModule } from '../plantas/plantas.module.js';
 import { LoteamentosModule } from '../loteamentos/loteamentos.module.js';
 import { AuditoriaModule } from '../auditoria/auditoria.module.js';
+import { UsuariosModule } from '../usuarios/usuarios.module.js';
 import { MarcadorService } from './application/services/marcador.service.js';
 import { AcervoMarcadoresModule } from './acervo-marcadores.module.js';
 
@@ -19,6 +20,7 @@ import { MapaEventosService } from './application/services/mapa-eventos.service.
     PlantasModule,
     LoteamentosModule,
     AuditoriaModule,
+    UsuariosModule,
   ],
   controllers: [MarcadoresController, MapaController],
   providers: [

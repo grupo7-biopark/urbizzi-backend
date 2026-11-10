@@ -37,7 +37,10 @@ describe('AuthService', () => {
     usuarios.autenticar.mockResolvedValue(usuario);
     usuarios.findAtivoById.mockResolvedValue(usuario);
     tokens.sign.mockResolvedValue('jwt');
-    tokens.verify.mockResolvedValue('u');
+    tokens.verify.mockImplementation(async () => ({
+      usuarioId: 'u',
+      expiraEmMs: Date.now() + 900_000,
+    }));
     sessoes.rotate.mockResolvedValue(true);
     service = new AuthService(
       usuarios as unknown as UsuarioService,
@@ -96,7 +99,17 @@ describe('AuthService', () => {
     expect(sessoes.revoke).toHaveBeenCalledWith(Sessao.hashToken('token'));
   });
   it('autentica consultando usuário atual', async () => {
-    expect(await service.autenticarToken('jwt')).toEqual(usuario);
+    expect(await service.autenticarToken('jwt')).toEqual({
+      usuario,
+      expiraEmMs: expect.any(Number),
+    });
+    expect(usuarios.findAtivoById).toHaveBeenCalledWith(usuario.id);
+  });
+  it('recusa credencial que expira enquanto o usuário é consultado', async () => {
+    tokens.verify.mockResolvedValue({ usuarioId: 'u', expiraEmMs: Date.now() });
+    await expect(service.autenticarToken('jwt')).rejects.toMatchObject({
+      code: 'NAO_AUTENTICADO',
+    });
   });
   it.each(['token', 'usuario'])('nega acesso inválido: %s', async (caso) => {
     if (caso === 'token') tokens.verify.mockResolvedValue(null);

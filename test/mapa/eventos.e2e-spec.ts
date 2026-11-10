@@ -1,9 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { finalize } from 'rxjs';
 import { PrismaService } from '../../src/shared/infra/database/prisma.service.js';
 import { AuditoriaService } from '../../src/modules/auditoria/application/services/auditoria.service.js';
+import { AuthService } from '../../src/modules/auth/application/services/auth.service.js';
 import { MapaEventosService } from '../../src/modules/mapa/application/services/mapa-eventos.service.js';
+import { UsuarioService } from '../../src/modules/usuarios/application/services/usuario.service.js';
 import { criarAppTeste } from '../helpers/feature-test.js';
 import { criarCenarioMapa } from '../helpers/mapa.js';
 import { limparBanco } from '../helpers/database.js';
@@ -172,10 +176,10 @@ describe('Eventos reais do mapa (BE-36)', () => {
   });
   it('libera subscription ao desconectar o cliente HTTP', async () => {
     const service = app.get(MapaEventosService),
-      original = service.observar.bind(service),
+      original = service.observarInterno.bind(service),
       finalizado = vi.fn();
-    vi.spyOn(service, 'observar').mockImplementation((id) =>
-      original(id).pipe(finalize(finalizado)),
+    vi.spyOn(service, 'observarInterno').mockImplementation((id, expiraEmMs) =>
+      original(id, expiraEmMs).pipe(finalize(finalizado)),
     );
     const stream = await conectar(undefined, c.usuarios.GESTOR.token);
     stream.close();
@@ -183,6 +187,67 @@ describe('Eventos reais do mapa (BE-36)', () => {
       timeout: 5000,
     });
   });
+
+  it('encerra o SSE HTTP na expiração do JWT sem exigir uma mudança no mapa', async () => {
+    const token = app.get(JwtService).sign(
+      { sub: c.usuarios.GESTOR.id },
+      {
+        secret: app.get(ConfigService).getOrThrow<string>('JWT_SECRET'),
+        algorithm: 'HS256',
+        issuer: 'urbizzi',
+        audience: 'urbizzi-api',
+        expiresIn: 5,
+      },
+    );
+    const stream = await conectar(undefined, token);
+    await vi.waitFor(() => expect(stream.estado.fechado).toBe(true), {
+      timeout: 8000,
+    });
+    expect(stream.eventos.map(({ tipo }) => tipo)).not.toContain('error');
+    await request(app.getHttpServer())
+      .get('/v1/mapa/eventos')
+      .auth(token, { type: 'bearer' })
+      .expect(401);
+  }, 15000);
+
+  it('mantém SSE após logout e encerra após desativação administrativa', async () => {
+    const sessao = await app.get(AuthService).login({
+      email: 'gestor@exemplo.com',
+      senha: 'SenhaTeste123!',
+    });
+    const gestor = await conectar(undefined, sessao.accessToken);
+    const ativo = await conectar(undefined, c.usuarios.ADMINISTRADOR.token);
+    const consultar = vi.spyOn(app.get(UsuarioService), 'findAtivoById');
+    await request(app.getHttpServer())
+      .post('/v1/auth/logout')
+      .send({ refreshToken: sessao.refreshToken })
+      .expect(204);
+    await vi.waitFor(
+      () => expect(consultar).toHaveBeenCalledWith(c.usuarios.GESTOR.id),
+      { timeout: 8000 },
+    );
+    await prisma.lote.update({
+      where: { id: c.lotes[3].id },
+      data: { status: 'DISPONIVEL' },
+    });
+    await esperarStatus(gestor.eventos, c.lotes[3].id, 'DISPONIVEL');
+
+    await request(app.getHttpServer())
+      .post(`/v1/usuarios/${c.usuarios.GESTOR.id}/desativar`)
+      .auth(c.usuarios.ADMINISTRADOR.token, { type: 'bearer' })
+      .expect(200);
+    await vi.waitFor(() => expect(gestor.estado.fechado).toBe(true), {
+      timeout: 8000,
+    });
+    await reservar().expect(201);
+    await esperarStatus(ativo.eventos, c.lotes[0].id, 'RESERVADO');
+    expect(gestor.eventos.map(({ tipo }) => tipo)).not.toContain('error');
+    expect(gestor.eventos).not.toContainEqual({
+      tipo: 'status-lote',
+      data: { loteId: c.lotes[0].id, status: 'RESERVADO' },
+    });
+  }, 30000);
+
   it('heartbeat mantém o canal e desativar o link encerra uma conexão existente', async () => {
     const l = await link(),
       stream = await conectar(`/v1/publico/${l.token}/eventos`);

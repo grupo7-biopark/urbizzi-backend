@@ -52,7 +52,7 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar, expirar e converter reservas na venda do lote | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22, BE-25 |
 | `propostas` | `Proposta` | proposta, aprovação/rejeição | `reservas`, `configuracoes`, `auditoria` | BE-23, BE-24 |
 | `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
-| `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria` | BE-33, BE-35, BE-36 |
+| `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria`, `usuarios` | BE-33, BE-35, BE-36 |
 | `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria`, `mapa` | BE-37, BE-38 |
 | `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
 

@@ -29,10 +29,15 @@ export class JwtAuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<{
       headers: { authorization?: string };
       user?: UsuarioAutenticado;
+      jwtExpiraEmMs?: number;
     }>();
     const match = /^Bearer ([^\s]+)$/i.exec(req.headers.authorization ?? '');
     if (!match) throw new UnauthorizedException('Autenticação necessária');
-    req.user = await this.autenticador.autenticarToken(match[1]);
+    const { usuario, expiraEmMs } = await this.autenticador.autenticarToken(
+      match[1],
+    );
+    req.user = usuario;
+    req.jwtExpiraEmMs = expiraEmMs;
     return true;
   }
 }

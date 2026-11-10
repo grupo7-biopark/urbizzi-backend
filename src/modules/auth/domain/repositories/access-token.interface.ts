@@ -3,5 +3,7 @@ export interface AccessToken {
   readonly expiresIn: number;
   readonly refreshExpiresIn: number;
   sign(usuario: { id: string; nome: string; perfil: string }): Promise<string>;
-  verify(token: string): Promise<string | null>;
+  verify(
+    token: string,
+  ): Promise<{ usuarioId: string; expiraEmMs: number } | null>;
 }

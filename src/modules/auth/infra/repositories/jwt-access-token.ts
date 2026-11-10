@@ -27,7 +27,7 @@ export class JwtAccessToken implements AccessToken {
       },
     );
   }
-  async verify(token: string): Promise<string | null> {
+  async verify(token: string) {
     try {
       const payload = await this.jwt.verifyAsync<{
         sub?: unknown;
@@ -42,8 +42,9 @@ export class JwtAccessToken implements AccessToken {
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
           payload.sub,
         ) &&
-        typeof payload.exp === 'number'
-        ? payload.sub
+        typeof payload.exp === 'number' &&
+        Number.isFinite(payload.exp * 1000)
+        ? { usuarioId: payload.sub, expiraEmMs: payload.exp * 1000 }
         : null;
     } catch {
       return null;
