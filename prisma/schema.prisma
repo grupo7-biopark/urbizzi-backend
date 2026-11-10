@@ -141,9 +141,10 @@ enum StatusLote {
   @@map("status_lote")
 }
 
+/// CHECK em SQL: char_length(nome) <= 150 (loteamentos_nome_tamanho_check)
 model Loteamento {
   id          String    @id @default(uuid()) @db.Uuid
-  nome        String    @db.VarChar(150)
+  nome        String    @db.Citext
   descricao   String?   @db.Text
   localizacao String?   @db.VarChar(255)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -158,10 +159,11 @@ model Loteamento {
   @@map("loteamentos")
 }
 
+/// CHECK em SQL: char_length(numero) <= 20 (quadras_numero_tamanho_check)
 model Quadra {
   id           String    @id @default(uuid()) @db.Uuid
   loteamentoId String    @map("loteamento_id") @db.Uuid
-  numero       String    @db.VarChar(20)
+  numero       String    @db.Citext
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -176,10 +178,11 @@ model Quadra {
 }
 
 /// CHECK em SQL: area_m2 > 0 e valor >= 0 (lotes_area_m2_check, lotes_valor_check)
+/// CHECK em SQL: char_length(numero) <= 20 (lotes_numero_tamanho_check)
 model Lote {
   id                 String     @id @default(uuid()) @db.Uuid
   quadraId           String     @map("quadra_id") @db.Uuid
-  numero             String     @db.VarChar(20)
+  numero             String     @db.Citext
   areaM2             Decimal    @map("area_m2") @db.Decimal(12, 2)
   valor              Decimal?   @db.Decimal(14, 2)
   exibirValorPublico Boolean    @default(false) @map("exibir_valor_publico")

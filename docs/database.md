@@ -123,9 +123,9 @@ Restrições atuais:
 | Tabela | Restrição | Tipo | Regra |
 | --- | --- | --- | --- |
 | `usuarios` | `usuarios_email_key` | unique | e-mail único |
-| `loteamentos` | `loteamentos_nome_key` | unique parcial (`deleted_at IS NULL`) | nome único (BE-14); a comparação sem diferenciar maiúsculas fica no service |
-| `quadras` | `quadras_loteamento_id_numero_key` | unique parcial (`deleted_at IS NULL`) | número da quadra único por loteamento |
-| `lotes` | `lotes_quadra_id_numero_key` | unique parcial (`deleted_at IS NULL`) | RN21 |
+| `loteamentos` | `loteamentos_nome_key` | unique parcial (`deleted_at IS NULL`) | nome único sem diferenciar caixa (`citext`, #84) |
+| `quadras` | `quadras_loteamento_id_numero_key` | unique parcial (`deleted_at IS NULL`) | número da quadra único por loteamento sem diferenciar caixa (`citext`) |
+| `lotes` | `lotes_quadra_id_numero_key` | unique parcial (`deleted_at IS NULL`) | RN21, sem diferenciar caixa (`citext`) |
 | `lotes` | `lotes_area_m2_check`, `lotes_valor_check` | check | área > 0, valor ≥ 0 |
 | `clientes` | `clientes_documento_key` | unique parcial (`deleted_at IS NULL`) | documento único |
 | `clientes` | `clientes_documento_check` | check | 11 ou 14 dígitos |
@@ -140,6 +140,44 @@ Restrições atuais:
 | `tokens_recuperacao_senha` | `tokens_recuperacao_senha_token_hash_key` | unique | hash do token único |
 
 Essas restrições são testadas em `test/database/schema-constraints.e2e-spec.ts`.
+
+### Unicidade sem diferenciar caixa (#84)
+
+`Loteamento.nome`, `Quadra.numero` e `Lote.numero` são `String @db.Citext`.
+A extensão PostgreSQL `citext`, instalada pela migration, preserva a grafia
+original e compara sem diferenciar caixa, inclusive nos índices parciais já
+declarados no schema. Esses três campos são exceções ao `VarChar` da tabela
+de tipos: os CHECKs `loteamentos_nome_tamanho_check`,
+`quadras_numero_tamanho_check` e `lotes_numero_tamanho_check` mantêm os limites
+de 150/20/20 caracteres. A comparação continua diferenciando acentos.
+
+A migration bloqueia escritas nas três tabelas enquanto verifica duplicados e
+converte os tipos. Se houver cadastros ativos equivalentes, aborta a transação
+sem escolher vencedores, excluir dados ou redirecionar vínculos. Antes de aplicar
+em uma base existente, identifique grupos conflitantes por ids (sem dados pessoais):
+
+```sql
+SELECT array_agg(id ORDER BY id) AS ids FROM loteamentos
+WHERE deleted_at IS NULL GROUP BY lower(nome) HAVING count(*) > 1;
+SELECT array_agg(id ORDER BY id) AS ids FROM quadras
+WHERE deleted_at IS NULL GROUP BY loteamento_id, lower(numero) HAVING count(*) > 1;
+SELECT array_agg(id ORDER BY id) AS ids FROM lotes
+WHERE deleted_at IS NULL GROUP BY quadra_id, lower(numero) HAVING count(*) > 1;
+```
+
+Concilie os registros pelos fluxos de cadastro, com responsáveis e vínculos
+preservados, antes de repetir a aplicação. Se uma tentativa já foi registrada
+como falha pelo Prisma, após a conciliação use
+`npx prisma migrate resolve --rolled-back 20261110130000_cadastros_unicidade_sem_caixa`
+e então `npm run db:deploy`. Não marque a migration como aplicada sem executá-la.
+
+Os repositórios traduzem P2002 para `LOTEAMENTO_JA_EXISTE`, `QUADRA_JA_EXISTE`
+ou `LOTE_JA_EXISTE`, inclusive na importação. Os pré-checks continuam dando
+feedback antecipado, mas a regra é garantida pelo banco em concorrência.
+Os testes `unicidade-cadastros.e2e-spec.ts` e `migration-unicidade.e2e-spec.ts`
+cobrem corridas, rollback, limites, escopo e recusa segura de dados antigos duplicados.
+Referências: [citext no PostgreSQL](https://www.postgresql.org/docs/17/citext.html)
+e [extensões no Prisma](https://www.prisma.io/docs/orm/v7/prisma-schema/postgresql-extensions).
 
 ## Migrations
 
@@ -266,19 +304,19 @@ erDiagram
   }
   loteamentos {
     uuid id PK
-    varchar nome "único entre os não excluídos"
+    citext nome "único entre os não excluídos; até 150 caracteres"
     text descricao
     varchar localizacao
   }
   quadras {
     uuid id PK
     uuid loteamento_id FK
-    varchar numero "único por loteamento"
+    citext numero "único por loteamento; até 20 caracteres"
   }
   lotes {
     uuid id PK
     uuid quadra_id FK
-    varchar numero "único por quadra (RN21)"
+    citext numero "único por quadra; até 20 caracteres (RN21)"
     decimal area_m2
     decimal valor
     boolean exibir_valor_publico

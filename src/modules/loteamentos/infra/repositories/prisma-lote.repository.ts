@@ -1,3 +1,4 @@
+import { relancarErroCadastro } from './conflito-cadastro.js';
 import { ConflictError } from '../../../../shared/domain/errors/domain.error.js';
 import type { StatusLote } from '../../domain/models/lote.entity.js';
 import { Injectable } from '@nestjs/common';
@@ -121,28 +122,42 @@ export class PrismaLoteRepository implements LoteRepository {
 
   async create(lote: Lote, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.lote.create({ data: this.toData(lote) });
+    try {
+      await db.lote.create({ data: this.toData(lote) });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'lote');
+    }
   }
 
   async createMany(lotes: Lote[], tx?: PrismaTransaction): Promise<void> {
     if (lotes.length === 0) return;
     const db = tx ?? this.prisma;
-    await db.lote.createMany({ data: lotes.map((lote) => this.toData(lote)) });
+    try {
+      await db.lote.createMany({
+        data: lotes.map((lote) => this.toData(lote)),
+      });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'lote');
+    }
   }
 
   /** Grava só os campos do cadastro; o status muda pelos fluxos próprios. */
   async update(lote: Lote, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.lote.update({
-      where: { id: lote.id },
-      data: {
-        numero: lote.numero,
-        areaM2: lote.areaM2,
-        valor: lote.valor,
-        exibirValorPublico: lote.exibirValorPublico,
-        observacoes: lote.observacoes,
-      },
-    });
+    try {
+      await db.lote.update({
+        where: { id: lote.id },
+        data: {
+          numero: lote.numero,
+          areaM2: lote.areaM2,
+          valor: lote.valor,
+          exibirValorPublico: lote.exibirValorPublico,
+          observacoes: lote.observacoes,
+        },
+      });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'lote');
+    }
   }
 
   async delete(id: string, tx?: PrismaTransaction): Promise<void> {
