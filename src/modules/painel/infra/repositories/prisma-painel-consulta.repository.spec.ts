@@ -1,6 +1,40 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../../../shared/infra/database/prisma.service.js';
-import { PrismaPainelConsultaRepository } from './prisma-painel-consulta.repository.js';
+import {
+  formatISOWeek,
+  PrismaPainelConsultaRepository,
+} from './prisma-painel-consulta.repository.js';
+
+describe('formatISOWeek', () => {
+  it('calcula ano e semana ISO corretos nas viradas de dezembro e janeiro (regressão)', () => {
+    // 2019-12-30 é segunda-feira da semana 01 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2019, 11, 30)))).toBe('2020-W01');
+    // 2019-12-31 é terça-feira da semana 01 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2019, 11, 31)))).toBe('2020-W01');
+    // 2020-01-01 é quarta-feira da semana 01 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2020, 0, 1)))).toBe('2020-W01');
+
+    // 2020-12-31 é quinta-feira da semana 53 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2020, 11, 31)))).toBe('2020-W53');
+    // 2021-01-01 é sexta-feira da semana 53 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2021, 0, 1)))).toBe('2020-W53');
+    // 2021-01-02 é sábado da semana 53 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2021, 0, 2)))).toBe('2020-W53');
+    // 2021-01-03 é domingo da semana 53 de 2020
+    expect(formatISOWeek(new Date(Date.UTC(2021, 0, 3)))).toBe('2020-W53');
+
+    // 2021-01-04 é segunda-feira da semana 01 de 2021
+    expect(formatISOWeek(new Date(Date.UTC(2021, 0, 4)))).toBe('2021-W01');
+  });
+
+  it('método da classe delega para a função pura formatISOWeek', () => {
+    const repo = new PrismaPainelConsultaRepository({} as PrismaService);
+    expect(repo.formatISOWeek(new Date(Date.UTC(2019, 11, 30)))).toBe(
+      '2020-W01',
+    );
+    expect(repo.formatISOWeek(new Date(Date.UTC(2021, 0, 1)))).toBe('2020-W53');
+  });
+});
 
 describe('PrismaPainelConsultaRepository', () => {
   it('agrega resumo de lotes geral e por loteamento corretamente', async () => {
@@ -56,41 +90,52 @@ describe('PrismaPainelConsultaRepository', () => {
     expect(resultado.porLoteamento[1].total).toBe(15);
   });
 
-  it('agrega vendas por período (dia, semana, mês) e vendedor', async () => {
-    const agora = new Date();
-    const dataHoje = new Date(agora);
-    const dataSemana = new Date(agora.getTime() - 2 * 86400000);
-    const dataMes = new Date(agora.getTime() - 15 * 86400000);
-
-    const mockVendas = [
+  it('agrega vendas no banco via COUNT/SUM/GROUP BY para dia, semana, mês e vendedor', async () => {
+    const mockTotais = [
       {
-        reservaId: 'res-1',
+        total: 3,
+        valorTotal: '450001.00',
+        vendasHoje: 1,
+        vendasSemana: 2,
+        vendasMes: 3,
+      },
+    ];
+    const mockPorDia = [
+      { data: '2026-11-09', quantidade: 1, valorTotal: '100000.50' },
+      { data: '2026-11-07', quantidade: 1, valorTotal: '200000.50' },
+      { data: '2026-10-25', quantidade: 1, valorTotal: '150000.00' },
+    ];
+    const mockPorSemana = [
+      { semana: '2026-W46', quantidade: 2, valorTotal: '300001.00' },
+      { semana: '2026-W43', quantidade: 1, valorTotal: '150000.00' },
+    ];
+    const mockPorMes = [
+      { mes: '2026-11', quantidade: 2, valorTotal: '300001.00' },
+      { mes: '2026-10', quantidade: 1, valorTotal: '150000.00' },
+    ];
+    const mockPorVendedor = [
+      {
         vendedorId: 'vend-1',
-        vendedorNome: 'Vendedor Um',
-        dataVenda: dataHoje,
-        valor: '100000.50',
-        loteamentoId: 'lot-1',
+        nome: 'Vendedor Um',
+        quantidade: 2,
+        valorTotal: '300001.00',
       },
       {
-        reservaId: 'res-2',
-        vendedorId: 'vend-1',
-        vendedorNome: 'Vendedor Um',
-        dataVenda: dataSemana,
-        valor: '200000.50',
-        loteamentoId: 'lot-1',
-      },
-      {
-        reservaId: 'res-3',
         vendedorId: 'vend-2',
-        vendedorNome: 'Vendedor Dois',
-        dataVenda: dataMes,
-        valor: '150000.00',
-        loteamentoId: 'lot-2',
+        nome: 'Vendedor Dois',
+        quantidade: 1,
+        valorTotal: '150000.00',
       },
     ];
 
     const prisma = {
-      $queryRaw: vi.fn().mockResolvedValue(mockVendas),
+      $queryRaw: vi
+        .fn()
+        .mockResolvedValueOnce(mockTotais)
+        .mockResolvedValueOnce(mockPorDia)
+        .mockResolvedValueOnce(mockPorSemana)
+        .mockResolvedValueOnce(mockPorMes)
+        .mockResolvedValueOnce(mockPorVendedor),
     } as unknown as PrismaService;
 
     const repository = new PrismaPainelConsultaRepository(prisma);
@@ -98,19 +143,102 @@ describe('PrismaPainelConsultaRepository', () => {
     const resultadoDia = await repository.obterVendas({ agrupamento: 'dia' });
     expect(resultadoDia.total).toBe(3);
     expect(resultadoDia.valorTotal).toBe('450001.00');
-    expect(resultadoDia.porVendedor).toHaveLength(2);
-    expect(resultadoDia.porVendedor[0].vendedorId).toBe('vend-1');
-    expect(resultadoDia.porVendedor[0].quantidade).toBe(2);
-    expect(resultadoDia.porVendedor[0].valorTotal).toBe('300001.00');
-    expect(resultadoDia.porPeriodo.length).toBeGreaterThan(0);
+    expect(resultadoDia.periodo.dia).toBe(1);
+    expect(resultadoDia.periodo.semana).toBe(2);
+    expect(resultadoDia.periodo.mes).toBe(3);
+    expect(resultadoDia.porPeriodo).toHaveLength(3);
+    expect(resultadoDia.porPeriodo[0]).toEqual({
+      periodo: '2026-11-09',
+      quantidade: 1,
+      valorTotal: '100000.50',
+    });
+    expect(resultadoDia.porDia).toEqual(mockPorDia);
+    expect(resultadoDia.porSemana).toEqual(mockPorSemana);
+    expect(resultadoDia.porMes).toEqual(mockPorMes);
+    expect(resultadoDia.porVendedor).toEqual(mockPorVendedor);
+  });
+
+  it('mapeia porPeriodo e porSemana corretamente na virada de ano (dezembro/janeiro)', async () => {
+    const mockTotais = [
+      {
+        total: 2,
+        valorTotal: '300000.00',
+        vendasHoje: 0,
+        vendasSemana: 1,
+        vendasMes: 1,
+      },
+    ];
+    const mockPorDia = [
+      { data: '2021-01-01', quantidade: 1, valorTotal: '150000.00' },
+      { data: '2019-12-30', quantidade: 1, valorTotal: '150000.00' },
+    ];
+    // Ambas as semanas pertencem a semanas ISO da virada: 2020-W53 e 2020-W01
+    const mockPorSemanaVirada = [
+      { semana: '2020-W53', quantidade: 1, valorTotal: '150000.00' },
+      { semana: '2020-W01', quantidade: 1, valorTotal: '150000.00' },
+    ];
+    const mockPorMes = [
+      { mes: '2021-01', quantidade: 1, valorTotal: '150000.00' },
+      { mes: '2019-12', quantidade: 1, valorTotal: '150000.00' },
+    ];
+    const mockPorVendedor = [
+      {
+        vendedorId: 'vend-1',
+        nome: 'Vendedor Um',
+        quantidade: 2,
+        valorTotal: '300000.00',
+      },
+    ];
+
+    const prisma = {
+      $queryRaw: vi
+        .fn()
+        .mockResolvedValueOnce(mockTotais)
+        .mockResolvedValueOnce(mockPorDia)
+        .mockResolvedValueOnce(mockPorSemanaVirada)
+        .mockResolvedValueOnce(mockPorMes)
+        .mockResolvedValueOnce(mockPorVendedor),
+    } as unknown as PrismaService;
+
+    const repository = new PrismaPainelConsultaRepository(prisma);
 
     const resultadoSemana = await repository.obterVendas({
       agrupamento: 'semana',
     });
-    expect(resultadoSemana.porPeriodo[0]).toHaveProperty('periodo');
 
-    const resultadoMes = await repository.obterVendas({ agrupamento: 'mes' });
-    expect(resultadoMes.porPeriodo[0]).toHaveProperty('periodo');
+    // Confere porSemana com as semanas ISO corretas
+    expect(resultadoSemana.porSemana[0].semana).toBe('2020-W53');
+    expect(resultadoSemana.porSemana[1].semana).toBe('2020-W01');
+
+    // Confere porPeriodo quando agrupamento é semana
+    expect(resultadoSemana.porPeriodo).toEqual([
+      { periodo: '2020-W53', quantidade: 1, valorTotal: '150000.00' },
+      { periodo: '2020-W01', quantidade: 1, valorTotal: '150000.00' },
+    ]);
+  });
+
+  it('retorna valores zerados quando não há vendas', async () => {
+    const prisma = {
+      $queryRaw: vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]),
+    } as unknown as PrismaService;
+
+    const repository = new PrismaPainelConsultaRepository(prisma);
+    const resultado = await repository.obterVendas({ agrupamento: 'mes' });
+
+    expect(resultado.total).toBe(0);
+    expect(resultado.valorTotal).toBe('0.00');
+    expect(resultado.periodo).toEqual({ dia: 0, semana: 0, mes: 0 });
+    expect(resultado.porPeriodo).toEqual([]);
+    expect(resultado.porDia).toEqual([]);
+    expect(resultado.porSemana).toEqual([]);
+    expect(resultado.porMes).toEqual([]);
+    expect(resultado.porVendedor).toEqual([]);
   });
 
   it('agrega pendências de reservas ativas, vencendo em breve e propostas atrasadas', async () => {

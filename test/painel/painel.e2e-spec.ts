@@ -309,6 +309,119 @@ describe('Painel de Indicadores (e2e)', () => {
 
       expect(resComercial2.body.total).toBe(0);
     });
+
+    it('agrupa vendas por semana e mês no banco e calcula semanas ISO de virada (dezembro/janeiro)', async () => {
+      // Cria lote e reserva convertida na virada 2019-12-30 (semana 2020-W01)
+      const quadra = await prisma.quadra.findFirstOrThrow({
+        where: { loteamentoId: loteamentoAlpha.id },
+      });
+      const clienteVirada = await prisma.cliente.create({
+        data: { nome: 'Cliente Virada', documento: '98765432109' },
+      });
+
+      const loteVirada1 = await prisma.lote.create({
+        data: {
+          quadraId: quadra.id,
+          numero: 'V1',
+          areaM2: '200.00',
+          valor: '100000.00',
+          status: 'VENDIDO',
+        },
+      });
+      const resVirada1 = await prisma.reserva.create({
+        data: {
+          loteId: loteVirada1.id,
+          clienteId: clienteVirada.id,
+          vendedorId: comercial1.id,
+          status: 'CONVERTIDA',
+          dataInicio: new Date('2019-12-20T00:00:00Z'),
+          dataVencimento: new Date('2020-01-10T00:00:00Z'),
+        },
+      });
+      // Força updated_at para 2019-12-30T10:00:00Z (segunda-feira da semana 2020-W01)
+      await prisma.$executeRaw`
+        UPDATE reservas SET updated_at = '2019-12-30 10:00:00+00'::timestamptz WHERE id = ${resVirada1.id}::uuid
+      `;
+
+      // Cria lote e reserva convertida na virada 2021-01-01 (sexta-feira da semana 2020-W53)
+      const loteVirada2 = await prisma.lote.create({
+        data: {
+          quadraId: quadra.id,
+          numero: 'V2',
+          areaM2: '200.00',
+          valor: '200000.00',
+          status: 'VENDIDO',
+        },
+      });
+      const resVirada2 = await prisma.reserva.create({
+        data: {
+          loteId: loteVirada2.id,
+          clienteId: clienteVirada.id,
+          vendedorId: comercial2.id,
+          status: 'CONVERTIDA',
+          dataInicio: new Date('2020-12-20T00:00:00Z'),
+          dataVencimento: new Date('2021-01-10T00:00:00Z'),
+        },
+      });
+      // Força updated_at para 2021-01-01T10:00:00Z (sexta-feira da semana 2020-W53)
+      await prisma.$executeRaw`
+        UPDATE reservas SET updated_at = '2021-01-01 10:00:00+00'::timestamptz WHERE id = ${resVirada2.id}::uuid
+      `;
+
+      // Consulta vendas agrupadas por semana
+      const resSemana = await get(
+        gestor.token,
+        '/vendas?agrupamento=semana',
+      ).expect(200);
+
+      // Verifica que porSemana contém as semanas ISO corretas calculadas no Postgres
+      const semana2020W01 = resSemana.body.porSemana.find(
+        (s: { semana: string }) => s.semana === '2020-W01',
+      );
+      expect(semana2020W01).toBeDefined();
+      expect(semana2020W01.quantidade).toBe(1);
+      expect(semana2020W01.valorTotal).toBe('100000.00');
+
+      const semana2020W53 = resSemana.body.porSemana.find(
+        (s: { semana: string }) => s.semana === '2020-W53',
+      );
+      expect(semana2020W53).toBeDefined();
+      expect(semana2020W53.quantidade).toBe(1);
+      expect(semana2020W53.valorTotal).toBe('200000.00');
+
+      // Verifica que porPeriodo com agrupamento=semana também reflete exatamente as mesmas semanas ISO
+      const periodo2020W01 = resSemana.body.porPeriodo.find(
+        (p: { periodo: string }) => p.periodo === '2020-W01',
+      );
+      expect(periodo2020W01).toBeDefined();
+      expect(periodo2020W01.quantidade).toBe(1);
+      expect(periodo2020W01.valorTotal).toBe('100000.00');
+
+      const periodo2020W53 = resSemana.body.porPeriodo.find(
+        (p: { periodo: string }) => p.periodo === '2020-W53',
+      );
+      expect(periodo2020W53).toBeDefined();
+      expect(periodo2020W53.quantidade).toBe(1);
+      expect(periodo2020W53.valorTotal).toBe('200000.00');
+
+      // Consulta vendas agrupadas por mês
+      const resMes = await get(gestor.token, '/vendas?agrupamento=mes').expect(
+        200,
+      );
+      const mes201912 = resMes.body.porPeriodo.find(
+        (p: { periodo: string }) => p.periodo === '2019-12',
+      );
+      expect(mes201912).toBeDefined();
+      expect(mes201912.quantidade).toBe(1);
+      expect(mes201912.valorTotal).toBe('100000.00');
+
+      const mes202101 = resMes.body.porPeriodo.find(
+        (p: { periodo: string }) => p.periodo === '2021-01',
+      );
+      expect(mes202101).toBeDefined();
+      expect(mes202101.quantidade).toBe(1);
+      expect(mes202101.valorTotal).toBe('200000.00');
+    });
   });
 
   describe('GET /v1/painel/pendencias', () => {

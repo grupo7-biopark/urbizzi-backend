@@ -18,9 +18,35 @@ import type {
   StatusLotePainel,
 } from '../../domain/repositories/painel-consulta.repository.interface.js';
 
+/**
+ * Calcula a semana ISO 8601 no formato YYYY-Www, garantindo que o ano
+ * seja o da quinta-feira daquela semana (ano da semana ISO).
+ */
+export function formatISOWeek(date: Date): string {
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const day = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - day + 3);
+  const isoYear = d.getUTCFullYear();
+  const thursdayTime = d.getTime();
+
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const jan4Day = (jan4.getUTCDay() + 6) % 7;
+  const firstThursday = new Date(Date.UTC(isoYear, 0, 4 - jan4Day + 3));
+
+  const weekNumber =
+    1 + Math.round((thursdayTime - firstThursday.getTime()) / 604800000);
+  return `${isoYear}-W${String(weekNumber).padStart(2, '0')}`;
+}
+
 @Injectable()
 export class PrismaPainelConsultaRepository implements PainelConsultaRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  formatISOWeek(date: Date): string {
+    return formatISOWeek(date);
+  }
 
   async obterResumo(filtros: FiltrosResumoPainel): Promise<PainelResumo> {
     const rows = await this.prisma.$queryRaw<
@@ -122,23 +148,31 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
   }
 
   async obterVendas(filtros: FiltrosVendasPainel): Promise<PainelVendas> {
-    const vendasRaw = await this.prisma.$queryRaw<
-      {
-        reservaId: string | null;
-        vendedorId: string | null;
-        vendedorNome: string | null;
-        dataVenda: Date;
-        valor: string;
-        loteamentoId: string;
-      }[]
-    >(Prisma.sql`
-      WITH vendas_reservas AS (
+    const agora = new Date();
+    const inicioHoje = new Date(
+      Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()),
+    );
+    const diaSemana = agora.getUTCDay();
+    const diffParaSegunda = (diaSemana + 6) % 7;
+    const inicioSemana = new Date(
+      Date.UTC(
+        agora.getUTCFullYear(),
+        agora.getUTCMonth(),
+        agora.getUTCDate() - diffParaSegunda,
+      ),
+    );
+    const inicioMes = new Date(
+      Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1),
+    );
+
+    const vendasCte = Prisma.sql`
+      WITH vendas AS (
         SELECT
           r.id AS "reservaId",
           r.vendedor_id AS "vendedorId",
           u.nome AS "vendedorNome",
           r.updated_at AS "dataVenda",
-          COALESCE(p.valor, l.valor, 0)::text AS valor,
+          COALESCE(p.valor, l.valor, 0)::numeric(14, 2) AS valor,
           q.loteamento_id AS "loteamentoId"
         FROM reservas r
         JOIN lotes l ON l.id = r.lote_id
@@ -161,14 +195,15 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
         ${filtros.vendedorId ? Prisma.sql`AND r.vendedor_id = ${filtros.vendedorId}::uuid` : Prisma.empty}
         ${filtros.dataDe ? Prisma.sql`AND r.updated_at >= ${filtros.dataDe}` : Prisma.empty}
         ${filtros.dataAte ? Prisma.sql`AND r.updated_at <= ${filtros.dataAte}` : Prisma.empty}
-      ),
-      vendas_diretas_lote AS (
+
+        UNION ALL
+
         SELECT
           NULL::uuid AS "reservaId",
           NULL::uuid AS "vendedorId",
           NULL::varchar AS "vendedorNome",
           l.updated_at AS "dataVenda",
-          COALESCE(l.valor, 0)::text AS valor,
+          COALESCE(l.valor, 0)::numeric(14, 2) AS valor,
           q.loteamento_id AS "loteamentoId"
         FROM lotes l
         JOIN quadras q ON q.id = l.quadra_id
@@ -180,132 +215,97 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
           ${filtros.dataDe ? Prisma.sql`AND l.updated_at >= ${filtros.dataDe}` : Prisma.empty}
           ${filtros.dataAte ? Prisma.sql`AND l.updated_at <= ${filtros.dataAte}` : Prisma.empty}
       )
-      SELECT * FROM vendas_reservas
-      UNION ALL
-      SELECT * FROM vendas_diretas_lote
-      ORDER BY "dataVenda" DESC
+    `;
+
+    const totaisPromise = this.prisma.$queryRaw<
+      {
+        total: number;
+        valorTotal: string;
+        vendasHoje: number;
+        vendasSemana: number;
+        vendasMes: number;
+      }[]
+    >(Prisma.sql`
+      ${vendasCte}
+      SELECT
+        COUNT(*)::int AS "total",
+        COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal",
+        COUNT(CASE WHEN "dataVenda" >= ${inicioHoje} THEN 1 END)::int AS "vendasHoje",
+        COUNT(CASE WHEN "dataVenda" >= ${inicioSemana} THEN 1 END)::int AS "vendasSemana",
+        COUNT(CASE WHEN "dataVenda" >= ${inicioMes} THEN 1 END)::int AS "vendasMes"
+      FROM vendas
     `);
 
-    const agora = new Date();
-    const inicioHoje = new Date(
-      Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()),
-    );
-    const diaSemana = agora.getUTCDay();
-    const diffParaSegunda = (diaSemana + 6) % 7;
-    const inicioSemana = new Date(
-      Date.UTC(
-        agora.getUTCFullYear(),
-        agora.getUTCMonth(),
-        agora.getUTCDate() - diffParaSegunda,
-      ),
-    );
-    const inicioMes = new Date(
-      Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1),
+    const porDiaPromise = this.prisma.$queryRaw<PainelVendaDiaItem[]>(
+      Prisma.sql`
+        ${vendasCte}
+        SELECT
+          to_char("dataVenda" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS "data",
+          COUNT(*)::int AS "quantidade",
+          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+        FROM vendas
+        GROUP BY 1
+        ORDER BY 1 DESC
+      `,
     );
 
-    let totalCentavos = 0n;
-    let vendasHoje = 0;
-    let vendasSemana = 0;
-    let vendasMes = 0;
+    const porSemanaPromise = this.prisma.$queryRaw<PainelVendaSemanaItem[]>(
+      Prisma.sql`
+        ${vendasCte}
+        SELECT
+          to_char("dataVenda" AT TIME ZONE 'UTC', 'IYYY') || '-W' || to_char("dataVenda" AT TIME ZONE 'UTC', 'IW') AS "semana",
+          COUNT(*)::int AS "quantidade",
+          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+        FROM vendas
+        GROUP BY 1
+        ORDER BY 1 DESC
+      `,
+    );
 
-    const diasMap = new Map<string, { quantidade: number; centavos: bigint }>();
-    const semanasMap = new Map<
-      string,
-      { quantidade: number; centavos: bigint }
-    >();
-    const mesesMap = new Map<
-      string,
-      { quantidade: number; centavos: bigint }
-    >();
-    const vendedoresMap = new Map<
-      string,
-      { nome: string; quantidade: number; centavos: bigint }
-    >();
+    const porMesPromise = this.prisma.$queryRaw<PainelVendaMesItem[]>(
+      Prisma.sql`
+        ${vendasCte}
+        SELECT
+          to_char("dataVenda" AT TIME ZONE 'UTC', 'YYYY-MM') AS "mes",
+          COUNT(*)::int AS "quantidade",
+          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+        FROM vendas
+        GROUP BY 1
+        ORDER BY 1 DESC
+      `,
+    );
 
-    for (const v of vendasRaw) {
-      const centavos = this.parseCents(v.valor);
-      totalCentavos += centavos;
+    const porVendedorPromise = this.prisma.$queryRaw<PainelVendaVendedorItem[]>(
+      Prisma.sql`
+        ${vendasCte}
+        SELECT
+          "vendedorId"::text AS "vendedorId",
+          "vendedorNome" AS "nome",
+          COUNT(*)::int AS "quantidade",
+          COALESCE(SUM(valor), 0)::numeric(14, 2)::text AS "valorTotal"
+        FROM vendas
+        WHERE "vendedorId" IS NOT NULL
+        GROUP BY "vendedorId", "vendedorNome"
+        ORDER BY "quantidade" DESC, "nome" ASC
+      `,
+    );
 
-      const dataVenda = new Date(v.dataVenda);
-      if (dataVenda >= inicioHoje) {
-        vendasHoje++;
-      }
-      if (dataVenda >= inicioSemana) {
-        vendasSemana++;
-      }
-      if (dataVenda >= inicioMes) {
-        vendasMes++;
-      }
+    const [totaisRows, porDia, porSemana, porMes, porVendedor] =
+      await Promise.all([
+        totaisPromise,
+        porDiaPromise,
+        porSemanaPromise,
+        porMesPromise,
+        porVendedorPromise,
+      ]);
 
-      const diaKey = dataVenda.toISOString().slice(0, 10);
-      const diaItem = diasMap.get(diaKey) ?? { quantidade: 0, centavos: 0n };
-      diaItem.quantidade++;
-      diaItem.centavos += centavos;
-      diasMap.set(diaKey, diaItem);
-
-      const semanaKey = this.formatISOWeek(dataVenda);
-      const semanaItem = semanasMap.get(semanaKey) ?? {
-        quantidade: 0,
-        centavos: 0n,
-      };
-      semanaItem.quantidade++;
-      semanaItem.centavos += centavos;
-      semanasMap.set(semanaKey, semanaItem);
-
-      const mesKey = dataVenda.toISOString().slice(0, 7);
-      const mesItem = mesesMap.get(mesKey) ?? { quantidade: 0, centavos: 0n };
-      mesItem.quantidade++;
-      mesItem.centavos += centavos;
-      mesesMap.set(mesKey, mesItem);
-
-      if (v.vendedorId) {
-        const vendItem = vendedoresMap.get(v.vendedorId) ?? {
-          nome: v.vendedorNome ?? 'Vendedor',
-          quantidade: 0,
-          centavos: 0n,
-        };
-        vendItem.quantidade++;
-        vendItem.centavos += centavos;
-        vendedoresMap.set(v.vendedorId, vendItem);
-      }
-    }
-
-    const porDia: PainelVendaDiaItem[] = Array.from(diasMap.entries())
-      .map(([data, item]) => ({
-        data,
-        quantidade: item.quantidade,
-        valorTotal: this.formatCents(item.centavos),
-      }))
-      .sort((a, b) => b.data.localeCompare(a.data));
-
-    const porSemana: PainelVendaSemanaItem[] = Array.from(semanasMap.entries())
-      .map(([semana, item]) => ({
-        semana,
-        quantidade: item.quantidade,
-        valorTotal: this.formatCents(item.centavos),
-      }))
-      .sort((a, b) => b.semana.localeCompare(a.semana));
-
-    const porMes: PainelVendaMesItem[] = Array.from(mesesMap.entries())
-      .map(([mes, item]) => ({
-        mes,
-        quantidade: item.quantidade,
-        valorTotal: this.formatCents(item.centavos),
-      }))
-      .sort((a, b) => b.mes.localeCompare(a.mes));
-
-    const porVendedor: PainelVendaVendedorItem[] = Array.from(
-      vendedoresMap.entries(),
-    )
-      .map(([vendedorId, item]) => ({
-        vendedorId,
-        nome: item.nome,
-        quantidade: item.quantidade,
-        valorTotal: this.formatCents(item.centavos),
-      }))
-      .sort(
-        (a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome),
-      );
+    const totais = totaisRows[0] ?? {
+      total: 0,
+      valorTotal: '0.00',
+      vendasHoje: 0,
+      vendasSemana: 0,
+      vendasMes: 0,
+    };
 
     let porPeriodo: PainelVendaPeriodoItem[];
     if (filtros.agrupamento === 'mes') {
@@ -329,14 +329,14 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
     }
 
     const totaisPeriodo = {
-      dia: vendasHoje,
-      semana: vendasSemana,
-      mes: vendasMes,
+      dia: totais.vendasHoje,
+      semana: totais.vendasSemana,
+      mes: totais.vendasMes,
     };
 
     return {
-      total: vendasRaw.length,
-      valorTotal: this.formatCents(totalCentavos),
+      total: totais.total,
+      valorTotal: totais.valorTotal,
       periodo: totaisPeriodo,
       resumo: totaisPeriodo,
       porPeriodo,
@@ -408,39 +408,5 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
         emDia,
       },
     };
-  }
-
-  private parseCents(valorStr: string | null | undefined): bigint {
-    if (!valorStr) return 0n;
-    const [inteiros, decimais = '00'] = valorStr.split('.');
-    const dec2 = decimais.padEnd(2, '0').slice(0, 2);
-    try {
-      return BigInt(inteiros) * 100n + BigInt(dec2);
-    } catch {
-      return 0n;
-    }
-  }
-
-  private formatCents(centavos: bigint): string {
-    const abs = centavos < 0n ? -centavos : centavos;
-    const sinal = centavos < 0n ? '-' : '';
-    const inteiros = abs / 100n;
-    const dec = (abs % 100n).toString().padStart(2, '0');
-    return `${sinal}${inteiros.toString()}.${dec}`;
-  }
-
-  private formatISOWeek(date: Date): string {
-    const d = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-    );
-    const day = (d.getUTCDay() + 6) % 7;
-    d.setUTCDate(d.getUTCDate() - day + 3);
-    const firstThursday = d.getTime();
-    d.setUTCMonth(0, 1);
-    if (d.getUTCDay() !== 4) {
-      d.setUTCMonth(0, 1 + ((4 - d.getUTCDay() + 7) % 7));
-    }
-    const weekNumber = 1 + Math.ceil((firstThursday - d.getTime()) / 604800000);
-    return `${date.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
   }
 }
