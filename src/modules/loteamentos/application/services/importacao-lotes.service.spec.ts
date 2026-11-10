@@ -48,10 +48,12 @@ describe('ImportacaoLotesService', () => {
       gerar: vi.fn().mockResolvedValue(Buffer.from('m')),
     };
     loteamentos = {
+      travarExistentes: vi.fn((ids: string[]) => Promise.resolve(ids)),
       findByNomes: vi.fn().mockResolvedValue([bela]),
       create: vi.fn(),
     };
     quadras = {
+      travarExistentes: vi.fn((ids: string[]) => Promise.resolve(ids)),
       findByLoteamentoIds: vi.fn().mockResolvedValue([quadraA]),
       create: vi.fn(),
     };

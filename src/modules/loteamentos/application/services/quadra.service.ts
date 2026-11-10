@@ -40,10 +40,10 @@ export class QuadraService {
     dto: CreateQuadraDto,
     usuario: UsuarioAutenticado,
   ): Promise<QuadraDto> {
-    await this.ensureLoteamentoExiste(loteamentoId);
-    await this.ensureNumeroDisponivel(loteamentoId, dto.numero);
-    const quadra = Quadra.create({ loteamentoId, numero: dto.numero });
-    await this.transactionManager.run(async (tx) => {
+    return this.transactionManager.run(async (tx) => {
+      await this.ensureLoteamentoExiste(loteamentoId, tx);
+      await this.ensureNumeroDisponivel(loteamentoId, dto.numero);
+      const quadra = Quadra.create({ loteamentoId, numero: dto.numero });
       await this.quadraRepository.create(quadra, tx);
       await this.auditoriaService.registrar(
         {
@@ -55,8 +55,8 @@ export class QuadraService {
         },
         tx,
       );
+      return QuadraDto.from(quadra);
     });
-    return QuadraDto.from(quadra);
   }
 
   async findById(id: string): Promise<QuadraDto> {
@@ -138,8 +138,11 @@ export class QuadraService {
     return quadra;
   }
 
-  private async ensureLoteamentoExiste(loteamentoId: string): Promise<void> {
-    if (!(await this.loteamentoRepository.findById(loteamentoId))) {
+  private async ensureLoteamentoExiste(
+    loteamentoId: string,
+    tx?: PrismaTransaction,
+  ): Promise<void> {
+    if (!(await this.loteamentoRepository.findById(loteamentoId, tx))) {
       throw new NotFoundError(
         'LOTEAMENTO_NAO_ENCONTRADO',
         'Loteamento não encontrado',

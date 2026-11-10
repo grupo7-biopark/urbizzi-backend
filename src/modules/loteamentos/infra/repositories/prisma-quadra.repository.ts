@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type {
+import {
   Prisma,
-  Quadra as QuadraRecord,
+  type Quadra as QuadraRecord,
 } from '../../../../generated/prisma/client.js';
 import {
   toSkipTake,
@@ -19,6 +19,19 @@ import type {
 @Injectable()
 export class PrismaQuadraRepository implements QuadraRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async travarExistentes(
+    ids: string[],
+    tx: PrismaTransaction,
+  ): Promise<string[]> {
+    if (!ids.length) return [];
+    const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM quadras
+      WHERE id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
+        AND deleted_at IS NULL ORDER BY id FOR UPDATE
+    `);
+    return rows.map((row) => row.id);
+  }
 
   async findById(id: string, tx?: PrismaTransaction): Promise<Quadra | null> {
     const db = tx ?? this.prisma;

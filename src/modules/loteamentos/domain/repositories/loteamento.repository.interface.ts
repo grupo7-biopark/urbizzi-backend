@@ -9,6 +9,8 @@ export interface LoteamentoFiltros {
 }
 
 export interface LoteamentoRepository {
+  /** Bloqueia pais ativos em ordem de id até o commit e devolve os encontrados. */
+  travarExistentes(ids: string[], tx: PrismaTransaction): Promise<string[]>;
   findById(id: string, tx?: PrismaTransaction): Promise<Loteamento | null>;
   /** Compara o nome sem diferenciar maiúsculas. */
   existsByNome(nome: string, ignoreId?: string): Promise<boolean>;

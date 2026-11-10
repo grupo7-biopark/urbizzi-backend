@@ -41,13 +41,16 @@ export class LoteService {
     dto: CreateLoteDto,
     usuario: UsuarioAutenticado,
   ): Promise<LoteDto> {
-    const quadra = await this.quadraRepository.findById(dto.quadraId);
-    if (!quadra) {
-      throw new NotFoundError('QUADRA_NAO_ENCONTRADA', 'Quadra não encontrada');
-    }
-    await this.ensureNumeroDisponivel(dto.quadraId, dto.numero);
-    const lote = Lote.create({ ...dto, loteamentoId: quadra.loteamentoId });
-    await this.transactionManager.run(async (tx) => {
+    return this.transactionManager.run(async (tx) => {
+      const quadra = await this.quadraRepository.findById(dto.quadraId, tx);
+      if (!quadra) {
+        throw new NotFoundError(
+          'QUADRA_NAO_ENCONTRADA',
+          'Quadra não encontrada',
+        );
+      }
+      await this.ensureNumeroDisponivel(dto.quadraId, dto.numero);
+      const lote = Lote.create({ ...dto, loteamentoId: quadra.loteamentoId });
       await this.loteRepository.create(lote, tx);
       await this.auditoriaService.registrar(
         {
@@ -59,8 +62,8 @@ export class LoteService {
         },
         tx,
       );
+      return LoteDto.from(lote);
     });
-    return LoteDto.from(lote);
   }
 
   async listExcluindo(

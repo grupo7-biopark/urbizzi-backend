@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  Loteamento as LoteamentoRecord,
+import {
+  type Loteamento as LoteamentoRecord,
   Prisma,
 } from '../../../../generated/prisma/client.js';
 import {
@@ -19,6 +19,19 @@ import type {
 @Injectable()
 export class PrismaLoteamentoRepository implements LoteamentoRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async travarExistentes(
+    ids: string[],
+    tx: PrismaTransaction,
+  ): Promise<string[]> {
+    if (!ids.length) return [];
+    const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM loteamentos
+      WHERE id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
+        AND deleted_at IS NULL ORDER BY id FOR UPDATE
+    `);
+    return rows.map((row) => row.id);
+  }
 
   async findById(
     id: string,

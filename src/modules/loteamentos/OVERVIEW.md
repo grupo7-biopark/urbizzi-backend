@@ -107,3 +107,10 @@ Correção #82: edições de loteamentos, quadras e lotes leem a entidade sob
 concorrente relê o estado após o commit anterior, preservando campos omitidos
 no PATCH e o estado anterior real na auditoria. Exclusão lógica usa o mesmo
 bloqueio; uma edição posterior à exclusão retorna o erro de inexistência.
+
+Correção #83: a criação manual de quadra/lote valida e bloqueia o pai ativo
+dentro da transação. Exclusões disputam o mesmo bloqueio antes de contar
+filhos. A importação revalida os ids existentes do plano com duas consultas
+em lote, bloqueando primeiro loteamentos e depois quadras, sempre por id.
+Um pai excluído entre planejamento e gravação aborta a importação inteira
+com o erro de inexistência correspondente, sem registros ou auditoria parciais.

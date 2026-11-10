@@ -10,6 +10,8 @@ export interface QuadraFiltros {
 }
 
 export interface QuadraRepository {
+  /** Bloqueia pais ativos em ordem de id até o commit e devolve os encontrados. */
+  travarExistentes(ids: string[], tx: PrismaTransaction): Promise<string[]>;
   findById(id: string, tx?: PrismaTransaction): Promise<Quadra | null>;
   /** Compara o número dentro do loteamento sem diferenciar maiúsculas. */
   existsByNumero(
