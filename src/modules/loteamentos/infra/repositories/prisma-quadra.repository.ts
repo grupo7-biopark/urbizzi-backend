@@ -1,3 +1,4 @@
+import { relancarErroCadastro } from './conflito-cadastro.js';
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -101,23 +102,31 @@ export class PrismaQuadraRepository implements QuadraRepository {
 
   async create(quadra: Quadra, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.quadra.create({
-      data: {
-        id: quadra.id,
-        loteamentoId: quadra.loteamentoId,
-        numero: quadra.numero,
-        createdAt: quadra.createdAt,
-        updatedAt: quadra.updatedAt,
-      },
-    });
+    try {
+      await db.quadra.create({
+        data: {
+          id: quadra.id,
+          loteamentoId: quadra.loteamentoId,
+          numero: quadra.numero,
+          createdAt: quadra.createdAt,
+          updatedAt: quadra.updatedAt,
+        },
+      });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'quadra');
+    }
   }
 
   async update(quadra: Quadra, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.quadra.update({
-      where: { id: quadra.id },
-      data: { numero: quadra.numero },
-    });
+    try {
+      await db.quadra.update({
+        where: { id: quadra.id },
+        data: { numero: quadra.numero },
+      });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'quadra');
+    }
   }
 
   async delete(id: string, tx?: PrismaTransaction): Promise<void> {

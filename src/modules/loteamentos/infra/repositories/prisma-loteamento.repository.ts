@@ -1,3 +1,4 @@
+import { relancarErroCadastro } from './conflito-cadastro.js';
 import { Injectable } from '@nestjs/common';
 import {
   type Loteamento as LoteamentoRecord,
@@ -98,28 +99,36 @@ export class PrismaLoteamentoRepository implements LoteamentoRepository {
 
   async create(loteamento: Loteamento, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.loteamento.create({
-      data: {
-        id: loteamento.id,
-        nome: loteamento.nome,
-        descricao: loteamento.descricao,
-        localizacao: loteamento.localizacao,
-        createdAt: loteamento.createdAt,
-        updatedAt: loteamento.updatedAt,
-      },
-    });
+    try {
+      await db.loteamento.create({
+        data: {
+          id: loteamento.id,
+          nome: loteamento.nome,
+          descricao: loteamento.descricao,
+          localizacao: loteamento.localizacao,
+          createdAt: loteamento.createdAt,
+          updatedAt: loteamento.updatedAt,
+        },
+      });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'loteamento');
+    }
   }
 
   async update(loteamento: Loteamento, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.loteamento.update({
-      where: { id: loteamento.id },
-      data: {
-        nome: loteamento.nome,
-        descricao: loteamento.descricao,
-        localizacao: loteamento.localizacao,
-      },
-    });
+    try {
+      await db.loteamento.update({
+        where: { id: loteamento.id },
+        data: {
+          nome: loteamento.nome,
+          descricao: loteamento.descricao,
+          localizacao: loteamento.localizacao,
+        },
+      });
+    } catch (erro) {
+      relancarErroCadastro(erro, 'loteamento');
+    }
   }
 
   async delete(id: string, tx?: PrismaTransaction): Promise<void> {

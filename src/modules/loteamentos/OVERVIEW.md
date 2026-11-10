@@ -10,7 +10,7 @@ Cadastro dos loteamentos comercializados pela Urbizzi (RF05), das suas quadras (
 
 ## Regras de negócio
 
-1. O nome é obrigatório e único entre os loteamentos não excluídos, sem diferenciar maiúsculas. A unicidade exata também é garantida pelo índice parcial `loteamentos_nome_key`.
+1. O nome é obrigatório e único entre os loteamentos não excluídos, sem diferenciar maiúsculas. O tipo `citext` e o índice parcial `loteamentos_nome_key` garantem a mesma regra no banco, inclusive em concorrência (#84).
 2. Espaços nas pontas são removidos. Em `descricao` e `localizacao`, texto vazio vira `null`, e `null` no PATCH limpa o campo.
 3. Um loteamento com quadras não excluídas não pode ser excluído (`409 LOTEAMENTO_COM_QUADRAS`).
 4. A exclusão é lógica: o registro fica no banco com `deletedAt` preenchido e o nome pode ser reutilizado.
@@ -114,3 +114,10 @@ filhos. A importação revalida os ids existentes do plano com duas consultas
 em lote, bloqueando primeiro loteamentos e depois quadras, sempre por id.
 Um pai excluído entre planejamento e gravação aborta a importação inteira
 com o erro de inexistência correspondente, sem registros ou auditoria parciais.
+
+Correção #84: nome do loteamento e número de quadra/lote usam `citext`, com
+CHECKs que mantêm os limites de tamanho. A grafia é preservada e os índices
+parciais continuam permitindo reutilização após exclusão lógica. P2002 na
+criação, edição e importação é traduzido para o conflito específico do cadastro.
+A migration recusa duplicados ativos antigos sem alterar os registros; veja o
+diagnóstico e a recuperação em `docs/database.md`.
