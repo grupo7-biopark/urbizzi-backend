@@ -104,17 +104,23 @@ Legenda: ✅ permitido · 👤 permitido só para os próprios registros · — 
 | Listar reservas † ("Minhas reservas", RF19) | ✅ | ✅ | ✅ | — |
 | Criar proposta | ✅ | ✅ | 👤 (sobre as suas reservas) | — |
 | Acompanhar propostas † (RF23) | ✅ | ✅ | 👤 | — |
+| Ver histórico de reservas e propostas do cliente † (RF13) | ✅ | ✅ | 👤 (reservas sob sua responsabilidade e propostas delas) | — |
 | Aprovar ou rejeitar proposta; ver pendências | ✅ | ✅ | — | — |
 | Marcar lote como Vendido (RN14) | ✅ | ✅ | — | — |
 | Bloquear e desbloquear lote (RN14) | ✅ | ✅ | — | — |
 | Gerar link público | ✅ | ✅ | ✅ | — |
 | Desativar link público † (RF38) | ✅ | ✅ | 👤 (links que gerou) | — |
 | Ver mapa, lotes e painel | ✅ | ✅ | ✅ | ✅ |
+| Ver detalhe do lote (BE-27) | ✅ | ✅ | ✅ (reservas, propostas e eventos próprios) | ✅ (somente cadastro do lote, quadra e loteamento) |
 | Ver histórico de alterações | ✅ | ✅ | 👤 (dos seus registros) | — |
 
 "Dos seus registros", no histórico, significa as entradas de auditoria de reservas e propostas em que o usuário é o vendedor. A regra exata é definida na BE-13.
 
+No histórico do cliente (BE-28), o escopo Comercial segue o acompanhamento de suas reservas/propostas: filtro pelo vendedor da reserva antes de paginar e contar. Cliente sem registros próprios devolve lista vazia. Administrador e Gestor veem todos os registros do cliente. A resposta não inclui nome, documento ou contatos do cliente e usuários, nem condições ou observações da proposta; a decisão contém apenas identificador do responsável, data e motivo. A rota é autenticada e responde com `Cache-Control: no-store`.
+
 Ao implementar cada módulo, a coluna "Perfis" da tabela de endpoints do `OVERVIEW.md` precisa bater com esta matriz.
+
+No detalhe do lote, o cliente e o vendedor são identificados somente por id e nome quando a reserva é visível. A resposta omite contatos, condições e observações da proposta, assim como motivos e snapshots da auditoria. A rota usa `Cache-Control: no-store`.
 
 ### Rotas públicas
 

@@ -17,6 +17,10 @@ import { PrismaLoteRepository } from './infra/repositories/prisma-lote.repositor
 import { PrismaLoteamentoRepository } from './infra/repositories/prisma-loteamento.repository.js';
 import { PrismaQuadraRepository } from './infra/repositories/prisma-quadra.repository.js';
 
+import { LoteDetalheService } from './application/services/lote-detalhe.service.js';
+import { LOTE_DETALHE_REPOSITORY } from './domain/repositories/lote-detalhe.repository.interface.js';
+import { PrismaLoteDetalheRepository } from './infra/repositories/prisma-lote-detalhe.repository.js';
+
 @Module({
   imports: [AuditoriaModule],
   controllers: [
@@ -29,6 +33,8 @@ import { PrismaQuadraRepository } from './infra/repositories/prisma-quadra.repos
     LoteamentoService,
     QuadraService,
     LoteService,
+    LoteDetalheService,
+    { provide: LOTE_DETALHE_REPOSITORY, useClass: PrismaLoteDetalheRepository },
     ImportacaoLotesService,
     { provide: LOTEAMENTO_REPOSITORY, useClass: PrismaLoteamentoRepository },
     { provide: QUADRA_REPOSITORY, useClass: PrismaQuadraRepository },
