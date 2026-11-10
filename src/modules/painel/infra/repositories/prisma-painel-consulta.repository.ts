@@ -217,7 +217,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       )
     `;
 
-    const totaisPromise = this.prisma.$queryRaw<
+    const totaisQuery = this.prisma.$queryRaw<
       {
         total: number;
         valorTotal: string;
@@ -236,7 +236,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       FROM vendas
     `);
 
-    const porDiaPromise = this.prisma.$queryRaw<PainelVendaDiaItem[]>(
+    const porDiaQuery = this.prisma.$queryRaw<PainelVendaDiaItem[]>(
       Prisma.sql`
         ${vendasCte}
         SELECT
@@ -249,7 +249,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       `,
     );
 
-    const porSemanaPromise = this.prisma.$queryRaw<PainelVendaSemanaItem[]>(
+    const porSemanaQuery = this.prisma.$queryRaw<PainelVendaSemanaItem[]>(
       Prisma.sql`
         ${vendasCte}
         SELECT
@@ -262,7 +262,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       `,
     );
 
-    const porMesPromise = this.prisma.$queryRaw<PainelVendaMesItem[]>(
+    const porMesQuery = this.prisma.$queryRaw<PainelVendaMesItem[]>(
       Prisma.sql`
         ${vendasCte}
         SELECT
@@ -275,7 +275,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       `,
     );
 
-    const porVendedorPromise = this.prisma.$queryRaw<PainelVendaVendedorItem[]>(
+    const porVendedorQuery = this.prisma.$queryRaw<PainelVendaVendedorItem[]>(
       Prisma.sql`
         ${vendasCte}
         SELECT
@@ -291,13 +291,16 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
     );
 
     const [totaisRows, porDia, porSemana, porMes, porVendedor] =
-      await Promise.all([
-        totaisPromise,
-        porDiaPromise,
-        porSemanaPromise,
-        porMesPromise,
-        porVendedorPromise,
-      ]);
+      await this.prisma.$transaction(
+        [
+          totaisQuery,
+          porDiaQuery,
+          porSemanaQuery,
+          porMesQuery,
+          porVendedorQuery,
+        ],
+        { isolationLevel: 'RepeatableRead' },
+      );
 
     const totais = totaisRows[0] ?? {
       total: 0,
@@ -352,7 +355,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
   ): Promise<PainelPendencias> {
     const agora = new Date();
 
-    const [reservasResult] = await this.prisma.$queryRaw<
+    const reservasQuery = this.prisma.$queryRaw<
       { ativas: number; vencendoEmBreve: number }[]
     >(Prisma.sql`
       SELECT
@@ -368,7 +371,7 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       ${filtros.dataAte ? Prisma.sql`AND r.data_inicio <= ${filtros.dataAte}` : Prisma.empty}
     `);
 
-    const [propostasResult] = await this.prisma.$queryRaw<
+    const propostasQuery = this.prisma.$queryRaw<
       { pendentes: number; atrasadas: number; emDia: number }[]
     >(Prisma.sql`
       SELECT
@@ -386,6 +389,10 @@ export class PrismaPainelConsultaRepository implements PainelConsultaRepository 
       ${filtros.dataAte ? Prisma.sql`AND p.data_envio <= ${filtros.dataAte}` : Prisma.empty}
     `);
 
+    const [[reservasResult], [propostasResult]] =
+      await this.prisma.$transaction([reservasQuery, propostasQuery], {
+        isolationLevel: 'RepeatableRead',
+      });
     const ativas = reservasResult?.ativas ?? 0;
     const vencendoEmBreve = reservasResult?.vencendoEmBreve ?? 0;
     const pendentes = propostasResult?.pendentes ?? 0;
