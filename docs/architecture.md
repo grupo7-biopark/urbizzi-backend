@@ -798,3 +798,8 @@ ClientesModule registra HistoricoClienteService e PrismaHistoricoClienteReposito
 
 O módulo AcervoMarcadoresModule fornece o repositório de marcadores ao módulo mapa e exporta CopiaMarcadoresService para plantas. Assim o upload copia as posições na transação que cria a nova versão, sem dependência circular entre PlantasModule e MapaModule. O lock de ativação determina qual planta é a origem da cópia; uma instrução INSERT ... SELECT copia o conjunto de marcadores.
 
+### Painel de indicadores (BE-39)
+
+PainelModule registra PainelService e PrismaPainelConsultaRepository. Como no mapa e no histórico do cliente, o adapter de consulta é um read model explícito: agrega dados de loteamentos, quadras, lotes, reservas, propostas e usuários via consultas SQL parametrizadas diretamente no banco de dados (COUNT, SUM, GROUP BY), sem carregar históricos ou coleções em memória no Node. Não realiza escritas em tabelas nem acessa repositórios alheios. Para validação de escopo e existência de loteamento, PainelService utiliza LoteamentoService exportado pelo LoteamentosModule. O escopo do perfil COMERCIAL é restrito às suas próprias pendências pelo service antes da consulta. Cálculos de semanas ISO utilizam o ano da quinta-feira da respectiva semana (IYYY-IW no Postgres), evitando anomalias em viradas de ano (dezembro/janeiro). Todas as rotas do painel respondem com cabeçalho `Cache-Control: no-store` e preservam valores monetários como strings decimais exatas.
+
+
