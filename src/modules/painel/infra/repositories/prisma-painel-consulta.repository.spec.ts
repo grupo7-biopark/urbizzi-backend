@@ -5,6 +5,9 @@ import {
   PrismaPainelConsultaRepository,
 } from './prisma-painel-consulta.repository.js';
 
+const transacaoMock = () =>
+  vi.fn((consultas: Promise<unknown>[]) => Promise.all(consultas));
+
 describe('formatISOWeek', () => {
   it('calcula ano e semana ISO corretos nas viradas de dezembro e janeiro (regressão)', () => {
     // 2019-12-30 é segunda-feira da semana 01 de 2020
@@ -136,11 +139,16 @@ describe('PrismaPainelConsultaRepository', () => {
         .mockResolvedValueOnce(mockPorSemana)
         .mockResolvedValueOnce(mockPorMes)
         .mockResolvedValueOnce(mockPorVendedor),
+      $transaction: transacaoMock(),
     } as unknown as PrismaService;
 
     const repository = new PrismaPainelConsultaRepository(prisma);
 
     const resultadoDia = await repository.obterVendas({ agrupamento: 'dia' });
+    expect(prisma.$transaction).toHaveBeenCalledExactlyOnceWith(
+      Array.from({ length: 5 }, () => expect.any(Promise)),
+      { isolationLevel: 'RepeatableRead' },
+    );
     expect(resultadoDia.total).toBe(3);
     expect(resultadoDia.valorTotal).toBe('450001.00');
     expect(resultadoDia.periodo.dia).toBe(1);
@@ -198,6 +206,7 @@ describe('PrismaPainelConsultaRepository', () => {
         .mockResolvedValueOnce(mockPorSemanaVirada)
         .mockResolvedValueOnce(mockPorMes)
         .mockResolvedValueOnce(mockPorVendedor),
+      $transaction: transacaoMock(),
     } as unknown as PrismaService;
 
     const repository = new PrismaPainelConsultaRepository(prisma);
@@ -226,6 +235,7 @@ describe('PrismaPainelConsultaRepository', () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
+      $transaction: transacaoMock(),
     } as unknown as PrismaService;
 
     const repository = new PrismaPainelConsultaRepository(prisma);
@@ -247,12 +257,17 @@ describe('PrismaPainelConsultaRepository', () => {
         .fn()
         .mockResolvedValueOnce([{ ativas: 12, vencendoEmBreve: 4 }])
         .mockResolvedValueOnce([{ pendentes: 6, atrasadas: 2, emDia: 4 }]),
+      $transaction: transacaoMock(),
     } as unknown as PrismaService;
 
     const repository = new PrismaPainelConsultaRepository(prisma);
     const resultado = await repository.obterPendencias({
       limiteBreve: new Date(Date.now() + 3 * 86400000),
     });
+    expect(prisma.$transaction).toHaveBeenCalledExactlyOnceWith(
+      [expect.any(Promise), expect.any(Promise)],
+      { isolationLevel: 'RepeatableRead' },
+    );
 
     expect(resultado.reservasAtivas).toBe(12);
     expect(resultado.reservasVencendoEmBreve).toBe(4);
