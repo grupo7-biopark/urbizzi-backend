@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
 import { setupApp } from '../../src/app.setup.js';
 import { PrismaService } from '../../src/shared/infra/database/prisma.service.js';
+import type { PrismaTransaction } from '../../src/shared/infra/database/prisma.transaction.js';
 import { LoteamentoService } from '../../src/modules/loteamentos/application/services/loteamento.service.js';
 import { LoteService } from '../../src/modules/loteamentos/application/services/lote.service.js';
 import { ClienteService } from '../../src/modules/clientes/application/services/cliente.service.js';
@@ -118,21 +119,17 @@ describe('Edições concorrentes de cadastros (integração)', () => {
                   );
 
       // Bloqueia a primeira gravação após a leitura e observa a segunda leitura.
-      const instrumentar = <
-        T extends { findById: (...args: never[]) => unknown },
-      >(
-        repo: T,
-      ) => {
+      const instrumentar = (repo: {
+        findById(id: string, tx?: PrismaTransaction): Promise<unknown>;
+      }) => {
         const original = repo.findById.bind(repo);
         let chamadas = 0;
-        vi.spyOn(repo, 'findById').mockImplementation((async (
-          ...args: never[]
-        ) => {
+        vi.spyOn(repo, 'findById').mockImplementation(async (...args) => {
           const chamada = ++chamadas;
           const result = await original(...args);
           if (chamada === 2) segundaLeitura.resolver();
           return result;
-        }) as T['findById']);
+        });
       };
       if (tipo === 'cliente') {
         const repo = app.get<PrismaClienteRepository>(CLIENTE_REPOSITORY);
