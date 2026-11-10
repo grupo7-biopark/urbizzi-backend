@@ -26,7 +26,7 @@ import { ReservaService } from '../../application/services/reserva.service.js';
 import { PaginationQueryDto } from '../../../../shared/application/dto/pagination-query.dto.js';
 import { ApiPaginatedResponse } from '../../../../shared/infra/http/swagger/api-paginated-response.decorator.js';
 import { CancelarReservaDto } from '../../application/dto/cancelar-reserva.dto.js';
-import { RenovacaoDto } from '../../domain/models/renovacao.js';
+import { RenovacaoDto } from '../../application/dto/renovacao.dto.js';
 @ApiTags('reservas')
 @ApiBearerAuth()
 @Perfis('ADMINISTRADOR', 'GESTOR', 'COMERCIAL')
@@ -45,6 +45,7 @@ export class ReservasController {
   }
   /** Estende o vencimento de uma reserva ativa. */
   @Post(':id/renovar')
+  @Header('Cache-Control', 'no-store')
   @HttpCode(200)
   @ApiOkResponse({ type: ReservaDto })
   @ApiErrorResponses(400, 401, 403, 404, 409, 422)
@@ -57,6 +58,7 @@ export class ReservasController {
 
   /** Cancela a reserva e libera o lote. */
   @Post(':id/cancelar')
+  @Header('Cache-Control', 'no-store')
   @HttpCode(200)
   @ApiOkResponse({ type: ReservaDto })
   @ApiErrorResponses(400, 401, 403, 404, 409)
@@ -70,6 +72,7 @@ export class ReservasController {
 
   /** Histórico paginado das renovações. */
   @Get(':id/renovacoes')
+  @Header('Cache-Control', 'no-store')
   @ApiPaginatedResponse(RenovacaoDto)
   @ApiErrorResponses(400, 401, 403, 404)
   listarRenovacoes(

@@ -46,7 +46,11 @@ export class PrismaPropostaRepository implements PropostaRepository {
     tx: PrismaTransaction,
   ): Promise<'EM_ANALISE' | 'APROVADA' | null> {
     const row = await tx.proposta.findFirst({
-      where: { reservaId, status: { in: ['EM_ANALISE', 'APROVADA'] } },
+      where: {
+        reservaId,
+        dataEncerramento: null,
+        status: { in: ['EM_ANALISE', 'APROVADA'] },
+      },
       select: { status: true },
     });
     return row?.status === 'APROVADA' ? 'APROVADA' : row ? 'EM_ANALISE' : null;
@@ -79,7 +83,7 @@ export class PrismaPropostaRepository implements PropostaRepository {
   }
 
   async listPendentes(query: Pagination): Promise<Page<Proposta>> {
-    const where = { status: 'EM_ANALISE' as const };
+    const where = { status: 'EM_ANALISE' as const, dataEncerramento: null };
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.proposta.findMany({
         where,
@@ -121,6 +125,8 @@ export class PrismaPropostaRepository implements PropostaRepository {
       decididoPorId: row.decididoPorId,
       dataDecisao: row.dataDecisao,
       motivoDecisao: row.motivoDecisao,
+      dataEncerramento: row.dataEncerramento,
+      motivoEncerramento: row.motivoEncerramento,
     });
   }
 }

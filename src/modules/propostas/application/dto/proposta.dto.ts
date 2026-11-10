@@ -18,6 +18,10 @@ export class PropostaDto {
   motivoDecisao: string | null;
   /** Indica se a proposta em análise ultrapassou o prazo limite (RN09) */
   atrasada: boolean;
+  /** Encerramento independente da decisao original. */
+  encerrada: boolean;
+  dataEncerramento: Date | null;
+  motivoEncerramento: string | null;
 
   static from(proposta: Proposta, agora = new Date()): PropostaDto {
     const dados = proposta.dados;
@@ -35,6 +39,9 @@ export class PropostaDto {
       dataDecisao: dados.dataDecisao ?? null,
       motivoDecisao: dados.motivoDecisao ?? null,
       atrasada: proposta.isAtrasada(agora),
+      encerrada: Boolean(dados.dataEncerramento),
+      dataEncerramento: dados.dataEncerramento ?? null,
+      motivoEncerramento: dados.motivoEncerramento ?? null,
     };
   }
 }

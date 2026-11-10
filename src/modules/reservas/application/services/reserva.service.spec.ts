@@ -1,3 +1,4 @@
+import type { EncerramentoPropostasService } from '../../../propostas/application/services/encerramento-propostas.service.js';
 import { ReservaService } from './reserva.service.js';
 import { Reserva } from '../../domain/models/reserva.entity.js';
 import type { LoteService } from '../../../loteamentos/application/services/lote.service.js';
@@ -13,13 +14,22 @@ describe('ReservaService', () => {
     travarAtivaPorLote: vi.fn(),
     findPropostaAprovada: vi.fn(),
     converter: vi.fn(),
-    renovar:vi.fn(), cancelar:vi.fn(), contarRenovacoes:vi.fn(), listarRenovacoes:vi.fn(),
+    renovar: vi.fn(),
+    cancelar: vi.fn(),
+    contarRenovacoes: vi.fn(),
+    listarRenovacoes: vi.fn(),
   };
-  const lotes = { reservar: vi.fn(), findById: vi.fn(), vender: vi.fn(),liberarReserva:vi.fn() };
+  const lotes = {
+    reservar: vi.fn(),
+    findById: vi.fn(),
+    vender: vi.fn(),
+    liberarReserva: vi.fn(),
+  };
   const clientes = { validarExistencia: vi.fn() };
-  const config = { getPrazoReservaDias: vi.fn(),getLimiteRenovacoes:vi.fn() };
+  const config = { getPrazoReservaDias: vi.fn(), getLimiteRenovacoes: vi.fn() };
   const audit = { registrar: vi.fn() };
   const tx = {} as PrismaTransaction;
+  const encerramento = { porCancelamento: vi.fn() };
   const service = new ReservaService(
     repository,
     lotes as unknown as LoteService,
@@ -29,6 +39,7 @@ describe('ReservaService', () => {
     {
       run: (fn: (tx: PrismaTransaction) => Promise<unknown>) => fn(tx),
     } as TransactionManager,
+    encerramento as unknown as EncerramentoPropostasService,
   );
   const u = {
     id: 'v',
@@ -153,12 +164,15 @@ describe('ReservaService', () => {
       u,
     );
     expect(resultado.status).toBe('CANCELADA');
-    expect(repository.cancelar).toHaveBeenCalledWith('r', u.id, true, tx);
-    expect(lotes.liberarReserva).toHaveBeenCalledWith(dto.loteId, tx, u.id);
-    expect(audit.registrar).toHaveBeenCalledWith(
-      expect.objectContaining({ entidadeId: 'proposta' }),
+    expect(repository.cancelar).toHaveBeenCalledWith('r', 'Desistência', tx);
+    expect(encerramento.porCancelamento).toHaveBeenCalledWith(
+      'r',
+      u.id,
+      true,
+      'Desistência',
       tx,
     );
+    expect(lotes.liberarReserva).toHaveBeenCalledWith(dto.loteId, tx, u.id);
   });
 
   it('propaga falha de auditoria para rollback', async () => {

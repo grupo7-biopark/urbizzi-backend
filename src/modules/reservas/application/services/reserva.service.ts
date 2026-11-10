@@ -1,9 +1,9 @@
+import { EncerramentoPropostasService } from '../../../propostas/application/services/encerramento-propostas.service.js';
 import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ConflictError,
   ForbiddenError,
-  ConflictError,
   NotFoundError,
 } from '../../../../shared/domain/errors/domain.error.js';
 import { PropriedadePolicy } from '../../../../shared/domain/policies/propriedade.policy.js';
@@ -34,6 +34,7 @@ export class ReservaService {
     private readonly configuracoes: ConfiguracaoService,
     private readonly auditoria: AuditoriaService,
     private readonly transactions: TransactionManager,
+    private readonly encerramento: EncerramentoPropostasService,
   ) {}
   async preverVencimento(
     usuario: UsuarioAutenticado,
@@ -120,12 +121,14 @@ export class ReservaService {
     return this.transactions.run(async (tx) => {
       const reserva = await this.carregar(id, usuario, tx);
       reserva.cancelar();
-      const propostas = await this.repository.cancelar(
+      await this.encerramento.porCancelamento(
         id,
         usuario.id,
         dto.confirmar === true,
+        dto.motivo,
         tx,
       );
+      await this.repository.cancelar(id, dto.motivo, tx);
       await this.lotes.liberarReserva(reserva.dados.loteId, tx, usuario.id);
       await this.auditoria.registrar(
         {
@@ -139,18 +142,6 @@ export class ReservaService {
         },
         tx,
       );
-      for (const propostaId of propostas) {
-        await this.auditoria.registrar(
-          {
-            usuarioId: usuario.id,
-            entidadeTipo: 'Proposta',
-            entidadeId: propostaId,
-            acao: 'ENCERRAR_POR_CANCELAMENTO',
-            valorNovo: { status: 'REJEITADA' },
-          },
-          tx,
-        );
-      }
       return ReservaDto.from(reserva);
     });
   }

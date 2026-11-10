@@ -1,3 +1,4 @@
+import { EncerramentoPropostasModule } from '../propostas/encerramento-propostas.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ExpiracaoReservaService } from './application/services/expiracao-reserva.service.js';
 import { EXPIRACAO_RESERVA_REPOSITORY } from './domain/repositories/expiracao-reserva.repository.interface.js';
@@ -20,6 +21,7 @@ import { VendasLotesController } from './infra/controllers/vendas-lotes.controll
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    EncerramentoPropostasModule,
     LoteamentosModule,
     ClientesModule,
     ConfiguracoesModule,

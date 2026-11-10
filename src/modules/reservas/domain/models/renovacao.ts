@@ -1,4 +1,4 @@
-export class RenovacaoDto {
+export interface Renovacao {
   id: string;
   usuarioId: string;
   vencimentoAnterior: Date;

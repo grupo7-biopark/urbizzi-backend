@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConflictError } from '../../../../shared/domain/errors/domain.error.js';
 import { Prisma } from '../../../../generated/prisma/client.js';
 import { PrismaService } from '../../../../shared/infra/database/prisma.service.js';
 import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
-import { ConflictError } from '../../../../shared/domain/errors/domain.error.js';
 import { Reserva } from '../../domain/models/reserva.entity.js';
 import type { ReservaRepository } from '../../domain/repositories/reserva.repository.interface.js';
 @Injectable()
@@ -50,35 +50,13 @@ export class PrismaReservaRepository implements ReservaRepository {
 
   async cancelar(
     id: string,
-    usuarioId: string,
-    confirmar: boolean,
+    motivo: string,
     tx: PrismaTransaction,
-  ) {
-    const where = {
-      reservaId: id,
-      status: {
-        in: ['EM_ANALISE', 'APROVADA'] as ('EM_ANALISE' | 'APROVADA')[],
-      },
-    };
-    if (!confirmar && (await tx.proposta.count({ where })))
-      throw new ConflictError(
-        'CONFIRMACAO_CANCELAMENTO_NECESSARIA',
-        'Confirme o encerramento das propostas da reserva',
-      );
-    const propostas = confirmar
-      ? await tx.proposta.updateManyAndReturn({
-          where,
-          data: {
-            status: 'REJEITADA',
-            decididoPorId: usuarioId,
-            dataDecisao: new Date(),
-            motivoDecisao: 'Reserva cancelada',
-          },
-          select: { id: true },
-        })
-      : [];
-    await tx.reserva.update({ where: { id }, data: { status: 'CANCELADA' } });
-    return propostas.map(({ id }) => id);
+  ): Promise<void> {
+    await tx.reserva.update({
+      where: { id },
+      data: { status: 'CANCELADA', motivoEncerramento: motivo },
+    });
   }
 
   async create(reserva: Reserva, tx: PrismaTransaction): Promise<void> {
