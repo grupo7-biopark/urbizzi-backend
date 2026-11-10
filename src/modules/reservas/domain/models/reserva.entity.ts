@@ -20,6 +20,15 @@ export class Reserva {
     dias: number,
     agora = new Date(),
   ): Reserva {
+    return new Reserva({
+      ...input,
+      id: randomUUID(),
+      dataInicio: agora,
+      dataVencimento: Reserva.calcularVencimento(dias, agora),
+      status: 'ATIVA',
+    });
+  }
+  static calcularVencimento(dias: number, agora: Date): Date {
     const vencimento = new Date(agora.getTime() + dias * 86400000);
     if (
       !Number.isSafeInteger(dias) ||
@@ -30,13 +39,7 @@ export class Reserva {
         'CONFIGURACAO_INVALIDA',
         'Prazo de reserva inválido',
       );
-    return new Reserva({
-      ...input,
-      id: randomUUID(),
-      dataInicio: agora,
-      dataVencimento: vencimento,
-      status: 'ATIVA',
-    });
+    return vencimento;
   }
   static restore(props: ReservaProps): Reserva {
     return new Reserva({ ...props });

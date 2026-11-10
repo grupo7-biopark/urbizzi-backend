@@ -18,6 +18,7 @@ import {
   type ReservaRepository,
 } from '../../domain/repositories/reserva.repository.interface.js';
 import type { CreateReservaDto } from '../dto/create-reserva.dto.js';
+import type { PrevisaoReservaDto } from '../dto/previsao-reserva.dto.js';
 import { ReservaDto } from '../dto/reserva.dto.js';
 @Injectable()
 export class ReservaService {
@@ -29,6 +30,19 @@ export class ReservaService {
     private readonly auditoria: AuditoriaService,
     private readonly transactions: TransactionManager,
   ) {}
+  async preverVencimento(
+    usuario: UsuarioAutenticado,
+  ): Promise<PrevisaoReservaDto> {
+    this.assertPerfil(usuario);
+    const prazoDias = await this.configuracoes.getPrazoReservaDias();
+    return {
+      prazoDias,
+      dataVencimento: Reserva.calcularVencimento(
+        prazoDias,
+        new Date(),
+      ).toISOString(),
+    };
+  }
   async create(
     dto: CreateReservaDto,
     usuario: UsuarioAutenticado,

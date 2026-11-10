@@ -5,6 +5,7 @@ import type { ConfiguracaoService } from '../../../configuracoes/application/ser
 import type { AuditoriaService } from '../../../auditoria/application/services/auditoria.service.js';
 import type { TransactionManager } from '../../../../shared/infra/database/transaction.manager.js';
 import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
+
 describe('PropostaService', () => {
   const tx = {} as PrismaTransaction;
   const repository = {
@@ -12,6 +13,9 @@ describe('PropostaService', () => {
     findById: vi.fn(),
     findImpedimento: vi.fn(),
     list: vi.fn(),
+    update: vi.fn(),
+    listPendentes: vi.fn(),
+    listMinhas: vi.fn(),
   };
   const reservas = { findById: vi.fn() },
     config = { getPrazoAnaliseDiasUteis: vi.fn() },
@@ -27,9 +31,11 @@ describe('PropostaService', () => {
     perfil: 'GESTOR' as const,
   };
   let service: PropostaService;
+
   beforeEach(() => {
     vi.resetAllMocks();
     reservas.findById.mockResolvedValue({
+      id: 'r',
       vendedorId: 'vendedor',
       status: 'ATIVA',
       dataVencimento: new Date(Date.now() + 86400000),
@@ -43,6 +49,7 @@ describe('PropostaService', () => {
       transactions,
     );
   });
+
   it('preserva vendedor da reserva e audita sem texto livre', async () => {
     const p = await service.create('r', dto, usuario);
     expect(p.vendedorId).toBe('vendedor');
@@ -55,6 +62,7 @@ describe('PropostaService', () => {
       dto.condicoes,
     );
   });
+
   it.each(['EXPIRADA', 'CANCELADA', 'CONVERTIDA', 'VENCIDA'])(
     'nega reserva %s',
     async (status) => {
@@ -69,6 +77,7 @@ describe('PropostaService', () => {
       expect(repository.create).not.toHaveBeenCalled();
     },
   );
+
   it.each(['EM_ANALISE', 'APROVADA'])(
     'nega proposta impeditiva %s',
     async (status) => {
@@ -81,12 +90,14 @@ describe('PropostaService', () => {
       });
     },
   );
+
   it('propaga erros da auditoria', async () => {
     auditoria.registrar.mockRejectedValue(new Error('auditoria'));
     await expect(service.create('r', dto, usuario)).rejects.toThrow(
       'auditoria',
     );
   });
+
   it('consulta detalhe e lista paginada pela autorização da reserva', async () => {
     const p = Proposta.create(
       { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
@@ -99,10 +110,153 @@ describe('PropostaService', () => {
       (await service.list('r', { page: 1, pageSize: 20 }, usuario)).meta.total,
     ).toBe(1);
   });
+
   it('retorna 404 para proposta ausente', async () => {
     repository.findById.mockResolvedValue(null);
     await expect(service.findById('id', usuario)).rejects.toMatchObject({
       code: 'PROPOSTA_NAO_ENCONTRADA',
     });
+  });
+
+  it('aprova proposta, atualiza repositório e audita', async () => {
+    const p = Proposta.create(
+      { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
+      7,
+    );
+    repository.findById.mockResolvedValue(p);
+
+    const res = await service.aprovar('id', { motivo: 'Aprovado' }, usuario);
+
+    expect(res.status).toBe('APROVADA');
+    expect(res.decididoPorId).toBe('ator');
+    expect(res.motivoDecisao).toBe('Aprovado');
+    expect(reservas.findById).toHaveBeenCalledWith('r', usuario, tx);
+    expect(repository.update).toHaveBeenCalledWith(p, tx);
+    expect(auditoria.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usuarioId: 'ator',
+        entidadeTipo: 'Proposta',
+        acao: 'APROVAR',
+        motivo: 'Aprovado',
+      }),
+      tx,
+    );
+  });
+
+  it('rejeita proposta, atualiza repositório e audita', async () => {
+    const p = Proposta.create(
+      { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
+      7,
+    );
+    repository.findById.mockResolvedValue(p);
+
+    const res = await service.rejeitar(
+      'id',
+      { motivo: 'Valor baixo' },
+      usuario,
+    );
+
+    expect(res.status).toBe('REJEITADA');
+    expect(res.decididoPorId).toBe('ator');
+    expect(res.motivoDecisao).toBe('Valor baixo');
+    expect(repository.update).toHaveBeenCalledWith(p, tx);
+    expect(auditoria.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usuarioId: 'ator',
+        entidadeTipo: 'Proposta',
+        acao: 'REJEITAR',
+        motivo: 'Valor baixo',
+      }),
+      tx,
+    );
+  });
+
+  it('nega aprovação/rejeição para proposta inexistente ou não encontrada na transação', async () => {
+    repository.findById.mockResolvedValue(null);
+    await expect(
+      service.aprovar('id', { motivo: 'Motivo' }, usuario),
+    ).rejects.toMatchObject({ code: 'PROPOSTA_NAO_ENCONTRADA' });
+
+    const p = Proposta.create(
+      { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
+      7,
+    );
+    repository.findById.mockResolvedValueOnce(p).mockResolvedValueOnce(null);
+    await expect(
+      service.aprovar('id', { motivo: 'Motivo' }, usuario),
+    ).rejects.toMatchObject({ code: 'PROPOSTA_NAO_ENCONTRADA' });
+  });
+
+  it('nega aprovação/rejeição para comercial ou consulta', async () => {
+    const comercial = { ...usuario, perfil: 'COMERCIAL' as const };
+    await expect(
+      service.aprovar('id', { motivo: 'Motivo' }, comercial),
+    ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+    await expect(
+      service.rejeitar('id', { motivo: 'Motivo' }, comercial),
+    ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+  });
+
+  it('nega aprovar proposta já decidida', async () => {
+    const p = Proposta.create(
+      { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
+      7,
+    );
+    p.aprovar('gestor', 'Motivo prévio');
+    repository.findById.mockResolvedValue(p);
+
+    await expect(
+      service.aprovar('id', { motivo: 'Novo motivo' }, usuario),
+    ).rejects.toMatchObject({ code: 'PROPOSTA_JA_DECIDIDA' });
+  });
+
+  it('lista pendentes para gestor e bloqueia comercial', async () => {
+    const p = Proposta.create(
+      { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
+      7,
+    );
+    repository.listPendentes.mockResolvedValue({ items: [p], total: 1 });
+
+    const pag = await service.listPendentes({ page: 1, pageSize: 10 }, usuario);
+    expect(pag.meta.total).toBe(1);
+    expect(pag.data[0].id).toBe(p.dados.id);
+
+    await expect(
+      service.listPendentes(
+        { page: 1, pageSize: 10 },
+        {
+          ...usuario,
+          perfil: 'COMERCIAL',
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+  });
+
+  it('lista minhas propostas do vendedor e bloqueia consulta', async () => {
+    const p = Proposta.create(
+      { ...dto, reservaId: 'r', vendedorId: 'v', observacoes: null },
+      7,
+    );
+    repository.listMinhas.mockResolvedValue({ items: [p], total: 1 });
+
+    const pag = await service.listMinhas(
+      { page: 1, pageSize: 10 },
+      { ...usuario, id: 'v', perfil: 'COMERCIAL' },
+    );
+    expect(pag.meta.total).toBe(1);
+    expect(repository.listMinhas).toHaveBeenCalledWith('v', {
+      page: 1,
+      pageSize: 10,
+    });
+
+    await expect(
+      service.listMinhas(
+        { page: 1, pageSize: 10 },
+        {
+          ...usuario,
+          perfil: 'CONSULTA',
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
   });
 });
