@@ -25,6 +25,7 @@ describe('LoteamentoService', () => {
 
   beforeEach(() => {
     repository = {
+      travarExistentes: vi.fn(),
       findById: vi.fn(),
       existsByNome: vi.fn().mockResolvedValue(false),
       findByNomes: vi.fn(),

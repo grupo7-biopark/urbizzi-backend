@@ -32,9 +32,12 @@ describe('ImportacaoLotesService', () => {
     ler: ReturnType<typeof vi.fn>;
     gerar: ReturnType<typeof vi.fn>;
   };
-  let loteamentos: Record<'findByNomes' | 'create', ReturnType<typeof vi.fn>>;
+  let loteamentos: Record<
+    'findByNomes' | 'create' | 'travarExistentes',
+    ReturnType<typeof vi.fn>
+  >;
   let quadras: Record<
-    'findByLoteamentoIds' | 'create',
+    'findByLoteamentoIds' | 'create' | 'travarExistentes',
     ReturnType<typeof vi.fn>
   >;
   let lotes: Record<'findByQuadraIds' | 'createMany', ReturnType<typeof vi.fn>>;
@@ -48,10 +51,12 @@ describe('ImportacaoLotesService', () => {
       gerar: vi.fn().mockResolvedValue(Buffer.from('m')),
     };
     loteamentos = {
+      travarExistentes: vi.fn((ids: string[]) => Promise.resolve(ids)),
       findByNomes: vi.fn().mockResolvedValue([bela]),
       create: vi.fn(),
     };
     quadras = {
+      travarExistentes: vi.fn((ids: string[]) => Promise.resolve(ids)),
       findByLoteamentoIds: vi.fn().mockResolvedValue([quadraA]),
       create: vi.fn(),
     };

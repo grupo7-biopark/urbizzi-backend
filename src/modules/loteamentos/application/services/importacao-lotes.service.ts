@@ -1,5 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { BusinessRuleError } from '../../../../shared/domain/errors/domain.error.js';
+import {
+  BusinessRuleError,
+  NotFoundError,
+} from '../../../../shared/domain/errors/domain.error.js';
 import type { UsuarioAutenticado } from '../../../../shared/domain/usuario-autenticado.js';
 import { TransactionManager } from '../../../../shared/infra/database/transaction.manager.js';
 import { AuditoriaService } from '../../../auditoria/application/services/auditoria.service.js';
@@ -285,6 +288,35 @@ export class ImportacaoLotesService {
       motivo: MOTIVO,
     });
     await this.transactionManager.run(async (tx) => {
+      // Mesma ordem de locks dos cadastros manuais: loteamentos, depois quadras.
+      // Duas consultas em lote evitam uma consulta por linha da planilha.
+      const novosLoteamentos = new Set(plano.loteamentos.map((l) => l.id));
+      const novasQuadras = new Set(plano.quadras.map((q) => q.id));
+      const loteamentoIds = [
+        ...new Set([
+          ...plano.quadras.map((q) => q.loteamentoId),
+          ...plano.lotes.map((l) => l.loteamentoId),
+        ]),
+      ].filter((id) => !novosLoteamentos.has(id));
+      const quadraIds = [...new Set(plano.lotes.map((l) => l.quadraId))].filter(
+        (id) => !novasQuadras.has(id),
+      );
+      if (
+        (await this.loteamentoRepository.travarExistentes(loteamentoIds, tx))
+          .length !== loteamentoIds.length
+      )
+        throw new NotFoundError(
+          'LOTEAMENTO_NAO_ENCONTRADO',
+          'Loteamento não encontrado',
+        );
+      if (
+        (await this.quadraRepository.travarExistentes(quadraIds, tx)).length !==
+        quadraIds.length
+      )
+        throw new NotFoundError(
+          'QUADRA_NAO_ENCONTRADA',
+          'Quadra não encontrada',
+        );
       for (const loteamento of plano.loteamentos) {
         await this.loteamentoRepository.create(loteamento, tx);
       }
