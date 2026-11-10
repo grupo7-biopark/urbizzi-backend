@@ -40,8 +40,9 @@ export class LoteService {
   async create(
     dto: CreateLoteDto,
     usuario: UsuarioAutenticado,
+    transaction?: PrismaTransaction,
   ): Promise<LoteDto> {
-    return this.transactionManager.run(async (tx) => {
+    const execute = async (tx: PrismaTransaction) => {
       const quadra = await this.quadraRepository.findById(dto.quadraId, tx);
       if (!quadra) {
         throw new NotFoundError(
@@ -63,7 +64,10 @@ export class LoteService {
         tx,
       );
       return LoteDto.from(lote);
-    });
+    };
+    return transaction
+      ? execute(transaction)
+      : this.transactionManager.run(execute);
   }
 
   async listExcluindo(
@@ -99,8 +103,9 @@ export class LoteService {
     id: string,
     dto: UpdateLoteDto,
     usuario: UsuarioAutenticado,
+    transaction?: PrismaTransaction,
   ): Promise<LoteDto> {
-    return this.transactionManager.run(async (tx) => {
+    const execute = async (tx: PrismaTransaction) => {
       const lote = await this.getOrFail(id, tx);
       if (dto.numero != null) {
         await this.ensureNumeroDisponivel(lote.quadraId, dto.numero, id);
@@ -120,7 +125,10 @@ export class LoteService {
         tx,
       );
       return LoteDto.from(lote);
-    });
+    };
+    return transaction
+      ? execute(transaction)
+      : this.transactionManager.run(execute);
   }
 
   async delete(id: string, usuario: UsuarioAutenticado): Promise<void> {

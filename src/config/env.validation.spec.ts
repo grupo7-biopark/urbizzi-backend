@@ -10,6 +10,7 @@ describe('validate (env)', () => {
 
   it('aplica valores padrão quando variáveis opcionais estão ausentes', () => {
     expect(validate(validEnv)).toEqual({
+      GEOCODIFICADOR_URL: 'https://nominatim.openstreetmap.org/search',
       PUBLICO_CONTATO_COMERCIAL:
         'Solicite atendimento à equipe que compartilhou este link.',
       SMTP_HOST: 'localhost',

@@ -32,10 +32,11 @@ export class LoteamentoService {
   async create(
     dto: CreateLoteamentoDto,
     usuario: UsuarioAutenticado,
+    transaction?: PrismaTransaction,
   ): Promise<LoteamentoDto> {
     await this.ensureNomeDisponivel(dto.nome);
     const loteamento = Loteamento.create(dto);
-    await this.transactionManager.run(async (tx) => {
+    const execute = async (tx: PrismaTransaction) => {
       await this.loteamentoRepository.create(loteamento, tx);
       await this.auditoriaService.registrar(
         {
@@ -47,7 +48,9 @@ export class LoteamentoService {
         },
         tx,
       );
-    });
+    };
+    if (transaction) await execute(transaction);
+    else await this.transactionManager.run(execute);
     return LoteamentoDto.from(loteamento);
   }
 
@@ -73,8 +76,9 @@ export class LoteamentoService {
     id: string,
     dto: UpdateLoteamentoDto,
     usuario: UsuarioAutenticado,
+    transaction?: PrismaTransaction,
   ): Promise<LoteamentoDto> {
-    return this.transactionManager.run(async (tx) => {
+    const execute = async (tx: PrismaTransaction) => {
       const loteamento = await this.getOrFail(id, tx);
       if (dto.nome != null) await this.ensureNomeDisponivel(dto.nome, id);
       const anterior = loteamento.auditoria;
@@ -92,7 +96,10 @@ export class LoteamentoService {
         tx,
       );
       return LoteamentoDto.from(loteamento);
-    });
+    };
+    return transaction
+      ? execute(transaction)
+      : this.transactionManager.run(execute);
   }
 
   async delete(id: string, usuario: UsuarioAutenticado): Promise<void> {

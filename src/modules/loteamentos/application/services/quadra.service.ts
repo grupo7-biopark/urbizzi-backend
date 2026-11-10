@@ -39,8 +39,9 @@ export class QuadraService {
     loteamentoId: string,
     dto: CreateQuadraDto,
     usuario: UsuarioAutenticado,
+    transaction?: PrismaTransaction,
   ): Promise<QuadraDto> {
-    return this.transactionManager.run(async (tx) => {
+    const execute = async (tx: PrismaTransaction) => {
       await this.ensureLoteamentoExiste(loteamentoId, tx);
       await this.ensureNumeroDisponivel(loteamentoId, dto.numero);
       const quadra = Quadra.create({ loteamentoId, numero: dto.numero });
@@ -56,7 +57,10 @@ export class QuadraService {
         tx,
       );
       return QuadraDto.from(quadra);
-    });
+    };
+    return transaction
+      ? execute(transaction)
+      : this.transactionManager.run(execute);
   }
 
   async findById(id: string): Promise<QuadraDto> {
@@ -83,8 +87,9 @@ export class QuadraService {
     id: string,
     dto: UpdateQuadraDto,
     usuario: UsuarioAutenticado,
+    transaction?: PrismaTransaction,
   ): Promise<QuadraDto> {
-    return this.transactionManager.run(async (tx) => {
+    const execute = async (tx: PrismaTransaction) => {
       const quadra = await this.getOrFail(id, tx);
       if (dto.numero != null) {
         await this.ensureNumeroDisponivel(quadra.loteamentoId, dto.numero, id);
@@ -104,7 +109,10 @@ export class QuadraService {
         tx,
       );
       return QuadraDto.from(quadra);
-    });
+    };
+    return transaction
+      ? execute(transaction)
+      : this.transactionManager.run(execute);
   }
 
   async delete(id: string, usuario: UsuarioAutenticado): Promise<void> {

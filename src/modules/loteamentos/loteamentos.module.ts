@@ -1,4 +1,14 @@
 import { Module } from '@nestjs/common';
+import { BuscaGeograficaService } from './application/services/busca-geografica.service.js';
+import { BuscasGeograficasController } from './infra/controllers/buscas-geograficas.controller.js';
+import { NominatimGeocodificador } from './infra/repositories/nominatim-geocodificador.js';
+import { GEOCODIFICADOR } from './domain/repositories/geocodificador.interface.js';
+import { CadastroGeograficoService } from './application/services/cadastro-geografico.service.js';
+import { CadastrosGeograficosController } from './infra/controllers/cadastros-geograficos.controller.js';
+import { AreasGeograficasController } from './infra/controllers/areas-geograficas.controller.js';
+import { AreaGeograficaService } from './application/services/area-geografica.service.js';
+import { AREA_GEOGRAFICA_REPOSITORY } from './domain/repositories/area-geografica.repository.interface.js';
+import { PrismaAreaGeograficaRepository } from './infra/repositories/prisma-area-geografica.repository.js';
 import { AuditoriaModule } from '../auditoria/auditoria.module.js';
 import { ImportacaoLotesService } from './application/services/importacao-lotes.service.js';
 import { LoteService } from './application/services/lote.service.js';
@@ -24,12 +34,23 @@ import { PrismaLoteDetalheRepository } from './infra/repositories/prisma-lote-de
 @Module({
   imports: [AuditoriaModule],
   controllers: [
+    BuscasGeograficasController,
+    CadastrosGeograficosController,
+    AreasGeograficasController,
     LoteamentosController,
     QuadrasController,
     ImportacaoLotesController,
     LotesController,
   ],
   providers: [
+    BuscaGeograficaService,
+    { provide: GEOCODIFICADOR, useClass: NominatimGeocodificador },
+    CadastroGeograficoService,
+    AreaGeograficaService,
+    {
+      provide: AREA_GEOGRAFICA_REPOSITORY,
+      useClass: PrismaAreaGeograficaRepository,
+    },
     LoteamentoService,
     QuadraService,
     LoteService,
