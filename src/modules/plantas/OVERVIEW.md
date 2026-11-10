@@ -27,13 +27,13 @@ Planta humanizada exibida no mapa (RF26, RF27). Recebe a planta enviada pela Urb
 
 ### Processamento em tiles (BE-31)
 
-13. A fila é a própria tabela `plantas`. O worker retira a planta `ENVIADA` mais antiga e a marca como `PROCESSANDO` numa operação atômica (`FOR UPDATE SKIP LOCKED`), então cada planta é processada uma vez, mesmo com várias instâncias. Processa uma planta por vez.
+13. A fila é a própria tabela `plantas`. O worker retira a planta `ENVIADA` mais antiga, marca como `PROCESSANDO` e atribui um UUID à tentativa na mesma operação (`FOR UPDATE SKIP LOCKED`). Cada instância processa uma planta por vez.
 14. O worker baixa os originais para uma pasta temporária e junta as fatias em faixas com o libvips, sem montar a imagem inteira na memória. Em seguida gera a pirâmide de tiles WebP (qualidade 85) de 256 x 256 px.
 15. A pirâmide segue o layout "google": no zoom máximo a imagem tem o tamanho original, e cada nível abaixo tem a metade. O zoom 0 é um único tile, e os tiles das bordas são completados com branco. É compatível com Leaflet em `CRS.Simple`, com a origem no canto superior esquerdo.
-16. Os tiles vão para o bucket `plantas-tiles` em `plantas/<id>/<z>/<x>/<y>.webp`, com até 8 envios simultâneos. A falta de qualquer tile esperado pela pirâmide é erro.
-17. Ao terminar, a planta fica `PRONTA` com `larguraPx`, `alturaPx`, `maxZoom`, `tamanhoTile` e `tilesPath` (`plantas/<id>`). A pasta temporária é apagada com sucesso ou erro.
+16. Os tiles vão para o bucket `plantas-tiles` em `plantas/<id>/<tentativaId>/<z>/<x>/<y>.webp`, com até 8 envios simultâneos. A falta de qualquer tile esperado pela pirâmide é erro.
+17. A conclusão e a falha só são gravadas se o status ainda for `PROCESSANDO` e o UUID for o da tentativa atual. A conclusão publica o prefixo no `tilesPath` junto dos metadados e do status `PRONTA`. Essas escritas preservam o nome e a ativação. A pasta temporária é apagada com sucesso ou erro.
 18. Se falhar, a planta fica `ERRO`, com uma mensagem em `mensagemErro`. A mensagem é genérica e não traz detalhes internos, que vão só para o log.
-19. Uma planta `PROCESSANDO` há mais de 30 minutos é considerada interrompida (ex.: a API reiniciou no meio) e passa a `ERRO`.
+19. A varredura marca como `ERRO` uma planta `PROCESSANDO` há mais de 30 minutos e invalida seu UUID na mesma operação. O prazo continua fixo, sem heartbeat. Uma tentativa invalidada ainda pode escrever no próprio prefixo, que fica sem referência pública. Plantas prontas anteriores à migration continuam servindo o prefixo já gravado. Na implantação, encerre os workers da versão anterior antes de iniciar o processamento com a versão nova.
 20. Só uma planta `ERRO` pode ser reprocessada (`409 PLANTA_NAO_REPROCESSAVEL` nos outros status). Ela volta a `ENVIADA`, e a ação fica auditada (`REPROCESSAR`).
 21. O processamento automático não é auditado, porque é ação do sistema. O status e a mensagem de erro ficam na própria planta.
 

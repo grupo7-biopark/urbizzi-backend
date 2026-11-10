@@ -360,6 +360,7 @@ model Planta {
   mensagemErro            String?      @map("mensagem_erro") @db.Text
   // Início do processamento atual; detecta processamentos interrompidos
   processamentoIniciadoEm DateTime?    @map("processamento_iniciado_em") @db.Timestamptz(3)
+  processamentoTentativaId String?     @map("processamento_tentativa_id") @db.Uuid
   ativa                   Boolean      @default(false)
   criadoPorId             String       @map("criado_por_id") @db.Uuid
   createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
