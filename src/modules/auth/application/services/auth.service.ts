@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AuthenticationError } from '../../../../shared/domain/errors/domain.error.js';
 import type {
   Autenticador,
-  UsuarioAutenticado,
+  CredencialAutenticada,
 } from '../../../../shared/domain/usuario-autenticado.js';
 import { UsuarioService } from '../../../usuarios/application/services/usuario.service.js';
 import { Sessao } from '../../domain/models/sessao.entity.js';
@@ -85,14 +85,16 @@ export class AuthService implements Autenticador {
   async logout(token: string): Promise<void> {
     await this.sessoes.revoke(Sessao.hashToken(token));
   }
-  async autenticarToken(token: string): Promise<UsuarioAutenticado> {
-    const id = await this.tokens.verify(token);
-    const usuario = id ? await this.usuarios.findAtivoById(id) : null;
-    if (!usuario)
+  async autenticarToken(token: string): Promise<CredencialAutenticada> {
+    const credencial = await this.tokens.verify(token);
+    const usuario = credencial
+      ? await this.usuarios.findAtivoById(credencial.usuarioId)
+      : null;
+    if (!usuario || !credencial || credencial.expiraEmMs <= Date.now())
       throw new AuthenticationError(
         'NAO_AUTENTICADO',
         'Token inválido ou expirado',
       );
-    return usuario;
+    return { usuario, expiraEmMs: credencial.expiraEmMs };
   }
 }

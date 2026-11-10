@@ -3,6 +3,7 @@ import {
   Get,
   Header,
   Query,
+  Req,
   Sse,
   type MessageEvent,
 } from '@nestjs/common';
@@ -32,8 +33,10 @@ export class MapaController {
     content: { 'text/event-stream': { schema: { type: 'string' } } },
   })
   @ApiErrorResponses(401)
-  observar(): Observable<MessageEvent> {
-    return this.eventos.observar();
+  observar(
+    @Req() req: { user: UsuarioAutenticado; jwtExpiraEmMs: number },
+  ): Observable<MessageEvent> {
+    return this.eventos.observarInterno(req.user.id, req.jwtExpiraEmMs);
   }
 
   /** Planta ativa e marcadores paginados com status atual e ações do usuário */

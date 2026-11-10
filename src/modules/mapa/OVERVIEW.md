@@ -35,6 +35,8 @@ BE-38: MapaService.consultarPublico reutiliza a projeção paginada com escopo r
 
 GET /v1/mapa/eventos exige autenticação. GET /v1/publico/:token/eventos valida o link, filtra pelo loteamento e encerra o fluxo se o link for desativado. Eventos status-lote têm somente loteId e status. Heartbeats saem a cada 15 segundos. O PostgreSQL publica mudanças após o commit, por gatilho; rollback não publica eventos.
 
+O canal interno termina no `exp` do JWT verificado na abertura. O módulo consulta `UsuarioService` a cada 5 segundos, com limite de 2 segundos por consulta. Conta inativa ou ausente, erro ou timeout fecham a conexão sem evento de erro. O cliente reconecta pelo fluxo de [autenticação do SSE](../../../docs/security.md#sse-autenticado-do-mapa).
+
 O protocolo envia `ressincronizar` com `{}` ao abrir cada SSE e depois de cada conexão/reconexão bem-sucedida do LISTEN. O consumidor precisa escutar esse evento e consultar novamente o mapa atual. Não existe replay de notificações perdidas; heartbeat não comprova que o LISTEN esteve conectado o tempo todo. A conexão SSE pode permanecer aberta durante a recuperação do adapter e recebe o sinal explícito quando ele volta.
 
 MapaEventosService usa o contrato MapaEventosFonte por token. PgMapaEventosFonte, em infra, administra a conexão dedicada (application_name urbizzi-mapa-eventos), valida o payload, reconecta após três segundos e encerra conexão/timer no shutdown. Um LISTEN é compartilhado por todos os clientes da instância; cada instância recebe o NOTIFY do PostgreSQL.

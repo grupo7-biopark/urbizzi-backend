@@ -17,6 +17,12 @@
 - Erro de login sempre com a mesma resposta (`401 CREDENCIAIS_INVALIDAS`), sem revelar se o e-mail existe.
 - Limite de tentativas no login e na recuperação de senha (`@nestjs/throttler`): `429 MUITAS_REQUISICOES`.
 
+### SSE autenticado do mapa
+
+`GET /v1/mapa/eventos` fecha no vencimento do JWT usado na abertura. A conta é revalidada a cada 5 segundos, com limite de 2 segundos por consulta. O canal fecha em até 7 segundos após a desativação, considerando o intervalo e o limite da consulta. Falha ou timeout da consulta encerra o fluxo sem enviar detalhes internos. Revogar o refresh token por logout preserva o JWT até seu vencimento, sujeito à revalidação da conta.
+
+Ao reconectar, o cliente deve passar pelo fluxo normal de autenticação e renovar o access token quando necessário. Envie o JWT somente no cabeçalho `Authorization` do pedido ao backend. Mantenha credenciais fora de URLs e logs. Se o refresh falhar, encerre a reconexão e solicite login. Ao receber `ressincronizar`, consulte novamente o mapa.
+
 ### Recuperação de senha (BE-08)
 
 - `POST /v1/auth/forgot-password` sempre responde `202`, exista ou não o e-mail.
