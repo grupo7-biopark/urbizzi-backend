@@ -35,6 +35,8 @@ export class PrismaClienteRepository implements ClienteRepository {
     });
   }
   async findById(id: string, tx?: PrismaTransaction) {
+    if (tx)
+      await tx.$queryRaw`SELECT id FROM clientes WHERE id = ${id}::uuid FOR UPDATE`;
     const row = await (tx ?? this.prisma).cliente.findFirst({
       where: { id, deletedAt: null },
     });

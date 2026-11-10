@@ -101,3 +101,9 @@ BE-33: LoteService.listExcluindo(idsExcluir, query) exporta consulta paginada de
 BE-19: LoteService.reservar(id, usuarioId, tx) valida DISPONIVEL, marca teveReserva permanentemente e audita. Leituras de lote com tx bloqueiam a linha até o commit, incluindo exclusão, bloqueio e reserva, evitando excluir um lote que acabou de ser reservado.
 
 BE-21: LoteService.liberarReserva(id, tx) exige RESERVADO, muda para DISPONIVEL sem limpar teveReserva e audita com usuário de sistema. Lote vendido nunca é sobrescrito.
+
+Correção #82: edições de loteamentos, quadras e lotes leem a entidade sob
+`FOR UPDATE` dentro da mesma transação da gravação e auditoria. Uma edição
+concorrente relê o estado após o commit anterior, preservando campos omitidos
+no PATCH e o estado anterior real na auditoria. Exclusão lógica usa o mesmo
+bloqueio; uma edição posterior à exclusão retorna o erro de inexistência.

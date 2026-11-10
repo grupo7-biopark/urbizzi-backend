@@ -97,13 +97,13 @@ export class LoteService {
     dto: UpdateLoteDto,
     usuario: UsuarioAutenticado,
   ): Promise<LoteDto> {
-    const lote = await this.getOrFail(id);
-    if (dto.numero != null) {
-      await this.ensureNumeroDisponivel(lote.quadraId, dto.numero, id);
-    }
-    const anterior = lote.auditoria;
-    lote.atualizar(dto);
-    await this.transactionManager.run(async (tx) => {
+    return this.transactionManager.run(async (tx) => {
+      const lote = await this.getOrFail(id, tx);
+      if (dto.numero != null) {
+        await this.ensureNumeroDisponivel(lote.quadraId, dto.numero, id);
+      }
+      const anterior = lote.auditoria;
+      lote.atualizar(dto);
       await this.loteRepository.update(lote, tx);
       await this.auditoriaService.registrar(
         {
@@ -116,8 +116,8 @@ export class LoteService {
         },
         tx,
       );
+      return LoteDto.from(lote);
     });
-    return LoteDto.from(lote);
   }
 
   async delete(id: string, usuario: UsuarioAutenticado): Promise<void> {
