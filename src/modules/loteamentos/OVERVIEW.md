@@ -1,5 +1,69 @@
 # Módulo loteamentos
 
+## Mapa geográfico (experimento local)
+
+### Quadras demarcadas
+
+O contorno agora também aceita `tipo: QUADRA`. `quadraId` na projeção identifica
+a quadra dos lotes e a própria quadra; é nulo no loteamento. Quadras precisam
+ficar dentro do loteamento e não podem se sobrepor. Divisas compartilhadas são
+permitidas. Um lote com demarcação exige o limite da sua quadra e precisa caber
+inteiramente nela. Alterar/remover a quadra não pode deixar lotes demarcados fora
+do limite. Geometrias antigas são preservadas; não se inferem limites de quadras.
+
+- `PUT /v1/geografia/areas/quadras/:id`: substitui/remove a área (`vertices`).
+- `POST /v1/geografia/loteamentos/:loteamentoId/quadras`: cria número e contorno.
+- `PATCH /v1/geografia/quadras/:id`: altera número e contorno.
+
+As duas últimas rotas recebem `{ cadastro, vertices }` e gravam tudo com auditoria
+na mesma transação. Escritas exigem Admin/Gestor e usam o mesmo advisory lock do
+loteamento antes de bloquear cadastros. Rotas antigas continuam permitindo
+cadastros sem demarcação. Os novos erros 422 são `QUADRA_SEM_DEMARCACAO`,
+`LOTE_FORA_DA_QUADRA`, `QUADRA_FORA_DO_LOTEAMENTO`, `QUADRAS_SOBREPOSTAS` e
+`QUADRA_COM_DEMARCACOES`. A migration apenas amplia o CHECK de tipos.
+
+`AreaGeografica` guarda polígonos simples de loteamentos, quadras e lotes no banco,
+independentemente dos marcadores normalizados da planta por imagem. Os vértices
+são pares **[latitude, longitude]**, sem repetir o primeiro ponto no final;
+não são GeoJSON. Aceita de 3 a 500 pontos, latitude entre -85 e 85 (Mercator),
+longitude entre -180 e 180; não admite cruzar o antimeridiano.
+
+- `GET /v1/geografia/areas` lista paginada, filtro opcional `loteamentoId`;
+  `GET /v1/geografia/areas/:id` responde `{ area: null }` se não demarcado.
+- `PUT /v1/geografia/areas/loteamentos/:id` e `/lotes/:id` substituem o contorno;
+  corpo `{ vertices }`, com `null` para remover. Escrita: Admin/Gestor.
+- `POST /v1/geografia/loteamentos`, `/lotes` e `PATCH` nas mesmas rotas com `/:id`
+  recebem `{ cadastro, vertices }`: cadastro, contorno e auditoria são atômicos.
+  As rotas originais continuam funcionando sem exigir demarcação.
+- `GET /v1/geografia/busca?q=...` é busca manual autenticada e paginada.
+
+O backend valida forma simples, área positiva, contenção completa (inclusive
+arestas em limites côncavos) e ausência de sobreposição. Divisas compartilhadas
+são aceitas. `polygon-clipping` foi adicionada para operações robustas de diferença
+e interseção, evitando validação apenas pelos vértices. Há tolerância numérica de
+1e-14 graus quadrados. Área comercial em m² continua sendo o dado cadastral:
+o desenho não substitui levantamento topográfico.
+
+Um advisory lock por loteamento serializa as demarcações e as alterações do
+limite. Não é possível reduzir o limite deixando lotes fora nem removê-lo antes
+de remover os contornos dos filhos. Leituras ignoram exclusões lógicas.
+Auditoria registra somente quantidades de vértices, sem duplicar coordenadas.
+
+Erros: `AREA_GEOGRAFICA_INVALIDA` (400),
+`CADASTRO_GEOGRAFICO_NAO_ENCONTRADO` (404), `LOTEAMENTO_SEM_DEMARCACAO`,
+`LOTE_FORA_DO_LOTEAMENTO`, `LOTES_SOBREPOSTOS`, `LOTEAMENTO_COM_DEMARCACOES`
+e `BUSCA_GEOGRAFICA_INDISPONIVEL` (422).
+
+Busca usa Nominatim somente ao pressionar Pesquisar, sem autocomplete, com
+cache de 24h/200 consultas e fila de no máximo uma consulta por 1,1s, identificada
+como Urbizzi-local. **Uso limitado a uma instância local**; antes de distribuir
+em várias instâncias, substituir por provedor apropriado ou coordenar limite/cache
+global. `GEOCODIFICADOR_URL` permite trocar o serviço sem alterar código.
+Restrições: <https://operations.osmfoundation.org/policies/nominatim/>.
+Não enviar dados pessoais/confidenciais à busca. Tiles do OpenStreetMap são
+carregados diretamente com cache normal do navegador e atribuição visível,
+sem download em lote: <https://operations.osmfoundation.org/policies/tiles/>.
+
 Cadastro dos loteamentos comercializados pela Urbizzi (RF05), das suas quadras (RF06) e dos lotes (RF07, RF08), além da importação de lotes por planilha CSV ou XLSX (RF09).
 
 ## Modelo de domínio

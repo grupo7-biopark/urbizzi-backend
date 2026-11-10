@@ -258,6 +258,7 @@ erDiagram
   usuarios ||--o{ links_publicos : "gera"
   usuarios |o--o{ historico_auditoria : "altera"
   loteamentos ||--o{ quadras : "contém"
+  loteamentos ||--o{ areas_geograficas : "delimita"
   loteamentos |o--o{ links_publicos : "filtra"
   quadras ||--o{ lotes : "contém"
   lotes ||--o{ reservas : "é reservado"
@@ -271,6 +272,12 @@ erDiagram
     uuid id PK
     perfil_codigo codigo UK "ADMINISTRADOR, GESTOR, COMERCIAL, CONSULTA"
     varchar nome UK
+  }
+  areas_geograficas {
+    uuid id PK "id do Loteamento, Quadra ou Lote; referência polimórfica"
+    varchar tipo "LOTEAMENTO, QUADRA ou LOTE"
+    uuid loteamento_id FK
+    jsonb vertices "pares latitude/longitude; 3 a 500 pontos"
   }
   usuarios {
     uuid id PK

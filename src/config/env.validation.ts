@@ -11,6 +11,9 @@ const bucket = z
   .regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/);
 
 export const envSchema = z.object({
+  GEOCODIFICADOR_URL: endpoint.default(
+    'https://nominatim.openstreetmap.org/search',
+  ),
   PUBLICO_CONTATO_COMERCIAL: z
     .string()
     .trim()

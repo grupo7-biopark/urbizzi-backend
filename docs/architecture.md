@@ -47,7 +47,7 @@ Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo l�
 | `usuarios` | `Usuario`, `Perfil` | gestão de usuários e perfis | `auditoria` | BE-10 |
 | `configuracoes` | `Configuracao` | prazos de reserva e de análise | `auditoria` | BE-11 |
 | `auditoria` | `HistoricoAuditoria` | registro e consulta do histórico de alterações | — | BE-06, BE-13 |
-| `loteamentos` | `Loteamento`, `Quadra`, `Lote` | cadastros, importação de lotes, bloqueio, detalhe do lote | `auditoria` | BE-14 a BE-17, BE-26, BE-27 |
+| `loteamentos` | `Loteamento`, `Quadra`, `Lote`, `AreaGeografica` | cadastros, demarcação geográfica, importação de lotes, bloqueio, detalhe do lote | `auditoria` | BE-14 a BE-17, BE-26, BE-27 |
 | `clientes` | `Cliente` | cadastro e busca de clientes, histórico do cliente | `auditoria` | BE-18, BE-28 |
 | `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar, expirar e converter reservas na venda do lote | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22, BE-25 |
 | `propostas` | `Proposta` | proposta, aprovação/rejeição | `reservas`, `configuracoes`, `auditoria` | BE-23, BE-24 |
@@ -118,6 +118,12 @@ Um módulo com várias entidades (ex.: `loteamentos` com `Loteamento`, `Quadra` 
 Regras de negócio ficam **na entidade** quando dependem só dos dados dela (ex.: "uma reserva só pode ser renovada se estiver ATIVA") e **no service** quando dependem de outros dados (ex.: "o nome do loteamento é único", "o lote precisa estar DISPONIVEL para ser reservado").
 
 ### Entidades
+
+Exceção pura para o experimento de demarcação geográfica: o módulo `loteamentos`
+usa `polygon-clipping` em `domain/models/area-geografica.ts` para diferença e
+interseção de polígonos. Essa dependência matemática não faz I/O e não conhece
+NestJS, banco ou HTTP; evita implementar operações geométricas robustas à mão.
+Persistência, consulta externa e transações permanecem atrás das portas do módulo.
 
 - Classe com construtor privado e estado em `private props`.
 - `static create(input)` cria uma nova instância: gera o `id` com `randomUUID()` de `node:crypto`, preenche `createdAt`/`updatedAt` e aplica as invariantes.

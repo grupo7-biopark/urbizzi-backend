@@ -142,14 +142,30 @@ enum StatusLote {
 }
 
 /// CHECK em SQL: char_length(nome) <= 150 (loteamentos_nome_tamanho_check)
+// Contornos pertencem ao módulo loteamentos. Referência polimórfica: id é o
+// UUID do Loteamento, Quadra ou Lote. O service valida existência e hierarquia.
+model AreaGeografica {
+  id           String     @id @db.Uuid
+  tipo         String     @db.VarChar(10)
+  loteamentoId String     @map("loteamento_id") @db.Uuid
+  vertices     Json
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  loteamento   Loteamento @relation(fields: [loteamentoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([loteamentoId, tipo])
+  @@map("areas_geograficas")
+}
+
 model Loteamento {
-  id          String    @id @default(uuid()) @db.Uuid
-  nome        String    @db.Citext
-  descricao   String?   @db.Text
-  localizacao String?   @db.VarChar(255)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  areasGeograficas AreaGeografica[]
+  id               String           @id @default(uuid()) @db.Uuid
+  nome             String           @db.Citext
+  descricao        String?          @db.Text
+  localizacao      String?          @db.VarChar(255)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?        @map("deleted_at") @db.Timestamptz(3)
 
   quadras       Quadra[]
   linksPublicos LinkPublico[]
