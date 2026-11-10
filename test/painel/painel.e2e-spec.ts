@@ -1,6 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaPg } from '@prisma/adapter-pg';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { Prisma, PrismaClient } from '../../src/generated/prisma/client.js';
+import { PrismaPainelConsultaRepository } from '../../src/modules/painel/infra/repositories/prisma-painel-consulta.repository.js';
 import { PrismaService } from '../../src/shared/infra/database/prisma.service.js';
 import { limparBanco } from '../helpers/database.js';
 import { criarAppTeste, criarUsuarioTeste } from '../helpers/feature-test.js';
@@ -198,6 +202,67 @@ describe('Painel de Indicadores (e2e)', () => {
       .get(`/v1/painel${path}`)
       .auth(token, { type: 'bearer' });
 
+  async function consultarDuranteCommit<T>(
+    aliasPrimeiraConsulta: string,
+    gravar: () => Promise<void>,
+    consultar: (repositorio: PrismaPainelConsultaRepository) => Promise<T>,
+  ): Promise<T> {
+    const adapter = new PrismaPg({
+      connectionString: app
+        .get(ConfigService)
+        .getOrThrow<string>('DATABASE_URL'),
+    });
+    let liberar!: () => void;
+    const commit = new Promise<void>((resolve) => {
+      liberar = resolve;
+    });
+    let confirmou = false;
+
+    // A barreira usa o adapter para coordenar SQL real, com ou sem transação.
+    function intercalar(
+      executor: Pick<Awaited<ReturnType<PrismaPg['connect']>>, 'queryRaw'>,
+    ) {
+      const ler = executor.queryRaw.bind(executor);
+      executor.queryRaw = async (query) => {
+        if (!query.sql.includes(aliasPrimeiraConsulta)) {
+          await commit;
+          return ler(query);
+        }
+        try {
+          const primeiraLeitura = await ler(query);
+          await gravar();
+          confirmou = true;
+          return primeiraLeitura;
+        } finally {
+          liberar();
+        }
+      };
+    }
+
+    const conectar = adapter.connect.bind(adapter);
+    adapter.connect = async () => {
+      const db = await conectar();
+      intercalar(db);
+      const iniciar = db.startTransaction.bind(db);
+      db.startTransaction = async (isolamento) => {
+        const tx = await iniciar(isolamento);
+        intercalar(tx);
+        return tx;
+      };
+      return db;
+    };
+    const leitor = new PrismaClient({ adapter });
+    try {
+      const resultado = await consultar(
+        new PrismaPainelConsultaRepository(leitor as PrismaService),
+      );
+      expect(confirmou).toBe(true);
+      return resultado;
+    } finally {
+      await leitor.$disconnect();
+    }
+  }
+
   it('soma vendas válidas sem limitar o total à precisão de um único valor', async () => {
     const escopo = { lote: { quadra: { loteamentoId: loteamentoAlpha.id } } };
     await prisma.reserva.updateMany({
@@ -309,6 +374,65 @@ describe('Painel de Indicadores (e2e)', () => {
   });
 
   describe('GET /v1/painel/vendas', () => {
+    it('mantém total, séries e ranking no mesmo snapshot durante uma venda', async () => {
+      const reserva = await prisma.reserva.findFirstOrThrow({
+        where: { vendedorId: comercial1.id, status: 'ATIVA' },
+      });
+      await prisma.proposta.updateMany({
+        where: { reservaId: reserva.id },
+        data: {
+          status: 'APROVADA',
+          valor: '120000.37',
+          decididoPorId: gestor.id,
+          dataDecisao: new Date(),
+          motivoDecisao: 'Aprovada para venda concorrente',
+        },
+      });
+      const filtros = {
+        loteamentoId: loteamentoAlpha.id,
+        vendedorId: comercial1.id,
+        dataDe: new Date(Date.now() - 86400000),
+        dataAte: new Date(Date.now() + 86400000),
+        agrupamento: 'semana' as const,
+      };
+      const durante = await consultarDuranteCommit(
+        'AS "vendasHoje"',
+        async () => {
+          await request(app.getHttpServer())
+            .post(`/v1/lotes/${reserva.loteId}/vender`)
+            .auth(gestor.token, { type: 'bearer' })
+            .expect(204);
+        },
+        (repositorio) => repositorio.obterVendas(filtros),
+      );
+      const depois = await new PrismaPainelConsultaRepository(
+        prisma,
+      ).obterVendas(filtros);
+
+      expect(durante).toMatchObject({ total: 1, valorTotal: '150000.00' });
+      expect(depois).toMatchObject({ total: 2, valorTotal: '270000.37' });
+      for (const vendas of [durante, depois]) {
+        for (const serie of [
+          vendas.porDia,
+          vendas.porSemana,
+          vendas.porMes,
+          vendas.porPeriodo,
+          vendas.porVendedor,
+        ]) {
+          const quantidade = serie.reduce(
+            (soma, item) => soma + item.quantidade,
+            0,
+          );
+          const valor = serie.reduce(
+            (soma, item) => soma.plus(item.valorTotal),
+            new Prisma.Decimal(0),
+          );
+          expect(quantidade).toBe(vendas.total);
+          expect(valor.toFixed(2)).toBe(vendas.valorTotal);
+        }
+      }
+    });
+
     it('retorna vendas por período e por vendedor', async () => {
       const res = await get(gestor.token, '/vendas').expect(200);
 
@@ -467,6 +591,45 @@ describe('Painel de Indicadores (e2e)', () => {
   });
 
   describe('GET /v1/painel/pendencias', () => {
+    it('mantém reservas e propostas no mesmo snapshot durante um cancelamento', async () => {
+      const reserva = await prisma.reserva.findFirstOrThrow({
+        where: { vendedorId: comercial2.id, status: 'ATIVA' },
+      });
+      const filtros = {
+        loteamentoId: loteamentoBeta.id,
+        vendedorId: comercial2.id,
+        limiteBreve: new Date(Date.now() + 3 * 86400000),
+      };
+      const durante = await consultarDuranteCommit(
+        'AS "vencendoEmBreve"',
+        async () => {
+          await request(app.getHttpServer())
+            .post(`/v1/reservas/${reserva.id}/cancelar`)
+            .auth(comercial2.token, { type: 'bearer' })
+            .send({
+              motivo: 'Cancelamento durante a consulta do painel',
+              confirmar: true,
+            })
+            .expect(200);
+        },
+        (repositorio) => repositorio.obterPendencias(filtros),
+      );
+      expect(durante).toMatchObject({
+        reservas: { ativas: 1, vencendoEmBreve: 1 },
+        propostas: { pendentes: 1, atrasadas: 1, emDia: 0 },
+        total: 2,
+      });
+
+      const depois = await new PrismaPainelConsultaRepository(
+        prisma,
+      ).obterPendencias(filtros);
+      expect(depois).toMatchObject({
+        reservas: { ativas: 0, vencendoEmBreve: 0 },
+        propostas: { pendentes: 0, atrasadas: 0, emDia: 0 },
+        total: 0,
+      });
+    });
+
     it('gestor e admin visualizam todas as pendências', async () => {
       const resGestor = await get(gestor.token, '/pendencias').expect(200);
 

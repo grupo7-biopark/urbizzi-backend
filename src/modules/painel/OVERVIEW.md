@@ -16,6 +16,8 @@ Todas as respostas possuem cabeçalho `Cache-Control: no-store` para assegurar q
 
 Totais monetários são somados como `numeric` no PostgreSQL e retornados como texto com duas casas decimais. O agregado não recebe o limite de precisão de um único preço: a soma de vendas válidas pode ultrapassar os 12 dígitos inteiros permitidos por registro.
 
+Cada resposta de vendas usa uma transação em lote com isolamento `REPEATABLE READ` para ler totais, séries e ranking no mesmo snapshot do PostgreSQL. Pendências usa o mesmo isolamento para ler reservas e propostas juntas. Uma venda ou um cancelamento confirmado durante a leitura só entra em respostas cujo snapshot já inclui o commit.
+
 ## Regras de Negócio e Comportamento
 
 1. **Acesso por perfil**:
