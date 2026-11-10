@@ -308,6 +308,8 @@ model Proposta {
   decididoPorId String?        @map("decidido_por_id") @db.Uuid
   dataDecisao   DateTime?      @map("data_decisao") @db.Timestamptz(3)
   motivoDecisao String?        @map("motivo_decisao") @db.Text
+  dataEncerramento DateTime? @map("data_encerramento") @db.Timestamptz(3)
+  motivoEncerramento String? @map("motivo_encerramento") @db.Text
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -376,6 +378,7 @@ model Planta {
 
 /// CHECK em SQL: x e y entre 0 e 1 (marcadores_x_check, marcadores_y_check)
 model Marcador {
+  revisar Boolean @default(false)
   id        String   @id @default(uuid()) @db.Uuid
   plantaId  String   @map("planta_id") @db.Uuid
   loteId    String   @map("lote_id") @db.Uuid

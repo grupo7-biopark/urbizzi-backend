@@ -1,3 +1,4 @@
+import { EncerramentoPropostasModule } from '../propostas/encerramento-propostas.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ExpiracaoReservaService } from './application/services/expiracao-reserva.service.js';
 import { EXPIRACAO_RESERVA_REPOSITORY } from './domain/repositories/expiracao-reserva.repository.interface.js';
@@ -16,15 +17,21 @@ import { ReservaService } from './application/services/reserva.service.js';
 import { RESERVA_REPOSITORY } from './domain/repositories/reserva.repository.interface.js';
 import { PrismaReservaRepository } from './infra/repositories/prisma-reserva.repository.js';
 import { ReservasController } from './infra/controllers/reservas.controller.js';
+import { VendasLotesController } from './infra/controllers/vendas-lotes.controller.js';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    EncerramentoPropostasModule,
     LoteamentosModule,
     ClientesModule,
     ConfiguracoesModule,
     AuditoriaModule,
   ],
-  controllers: [ReservasConsultaController, ReservasController],
+  controllers: [
+    ReservasConsultaController,
+    ReservasController,
+    VendasLotesController,
+  ],
   providers: [
     ReservaService,
     ExpiracaoReservaService,

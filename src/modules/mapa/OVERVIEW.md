@@ -19,7 +19,7 @@ Auditoria atômica CRIAR/MOVER/EXCLUIR com ids e coordenadas. Falha na auditoria
 
 Erros: 400 DADOS_INVALIDOS/COORDENADAS_INVALIDAS; 401 NAO_AUTENTICADO; 403 ACESSO_NEGADO; 404 PLANTA_NAO_ENCONTRADA/LOTE_NAO_ENCONTRADO/MARCADOR_NAO_ENCONTRADO; 409 MARCADOR_DUPLICADO.
 
-Exporta MarcadorService para futuros consumidores. BE-34 e BE-36 permanecem em suas issues.
+Exporta MarcadorService para futuros consumidores. BE-36 permanece em sua issue.
 
 ## Mapa interno (BE-35)
 
@@ -34,3 +34,6 @@ BE-38: MapaService.consultarPublico reutiliza a projeção paginada com escopo r
 ## Eventos de status (BE-36)
 
 GET /v1/mapa/eventos exige autenticação. GET /v1/publico/:token/eventos valida o link, filtra pelo loteamento e encerra o fluxo se o link for desativado. Eventos status-lote têm somente loteId e status. Heartbeats saem a cada 15 segundos. O PostgreSQL publica mudanças após o commit, por gatilho. Após reconectar, o cliente deve recarregar o mapa, pois eventos não são armazenados para replay.
+## Revisão por versão (BE-34)
+
+Os marcadores incluem o booleano `revisar`. Marcadores novos e existentes na migração começam com false. Cada cópia recebe id próprio, preservando lote, x, y e eventuais revisões pendentes. Para confirmar a posição, Administrador ou Gestor chama `POST /v1/plantas/:plantaId/marcadores/:id/revisar` (200). A confirmação é idempotente e gera auditoria REVISAR na primeira mudança. O marcador precisa pertencer à planta indicada (404).

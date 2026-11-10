@@ -64,6 +64,53 @@ describe('LoteService', () => {
     return lote;
   }
 
+  describe('vender', () => {
+    const transacao = tx as unknown as Parameters<LoteService['vender']>[2];
+
+    it('bloqueia o lote reservado, atualiza o status e audita na transação', async () => {
+      const lote = existente();
+      lote.reservar();
+
+      await service.vender(lote.id, usuario.id, transacao);
+
+      expect(repository.findById).toHaveBeenCalledWith(lote.id, tx);
+      expect(repository.alterarStatus).toHaveBeenCalledWith(
+        lote.id,
+        'RESERVADO',
+        'VENDIDO',
+        tx,
+      );
+      expect(auditoria.registrar).toHaveBeenCalledWith(
+        {
+          usuarioId: usuario.id,
+          entidadeTipo: 'Lote',
+          entidadeId: lote.id,
+          acao: 'VENDER',
+          valorAnterior: { status: 'RESERVADO' },
+          valorNovo: { status: 'VENDIDO' },
+        },
+        tx,
+      );
+    });
+
+    it('recusa lote disponível e propaga conflito de gravação sem auditar', async () => {
+      const lote = existente();
+      await expect(
+        service.vender(lote.id, usuario.id, transacao),
+      ).rejects.toMatchObject({ code: 'LOTE_NAO_RESERVADO' });
+      expect(repository.alterarStatus).not.toHaveBeenCalled();
+
+      lote.reservar();
+      repository.alterarStatus.mockRejectedValue(
+        new ConflictError('LOTE_STATUS_ALTERADO', 'Status alterado'),
+      );
+      await expect(
+        service.vender(lote.id, usuario.id, transacao),
+      ).rejects.toMatchObject({ code: 'LOTE_STATUS_ALTERADO' });
+      expect(auditoria.registrar).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create', () => {
     it('cria DISPONIVEL no loteamento da quadra e audita', async () => {
       const dto = await service.create(

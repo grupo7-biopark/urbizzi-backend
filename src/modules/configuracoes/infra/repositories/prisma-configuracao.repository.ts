@@ -8,6 +8,12 @@ import type {
 @Injectable()
 export class PrismaConfiguracaoRepository implements ConfiguracaoRepository {
   constructor(private readonly prisma: PrismaService) {}
+  async readLimiteRenovacoes(tx: PrismaTransaction): Promise<string | null> {
+    const registro = await tx.configuracao.findUnique({
+      where: { chave: 'limite_renovacoes' },
+    });
+    return registro?.valor ?? null;
+  }
   read(tx?: PrismaTransaction) {
     return (tx ?? this.prisma).configuracao.findMany({
       where: {

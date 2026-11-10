@@ -76,8 +76,8 @@ export class LoteService {
       query,
     );
   }
-  async findById(id: string): Promise<LoteDto> {
-    return LoteDto.from(await this.getOrFail(id));
+  async findById(id: string, tx?: PrismaTransaction): Promise<LoteDto> {
+    return LoteDto.from(await this.getOrFail(id, tx));
   }
 
   async list(query: ListLotesQueryDto): Promise<PaginatedDto<LoteDto>> {
@@ -138,16 +138,41 @@ export class LoteService {
     });
   }
 
-  async liberarReserva(id: string, tx: PrismaTransaction): Promise<void> {
+  async vender(
+    id: string,
+    usuarioId: string,
+    tx: PrismaTransaction,
+  ): Promise<void> {
+    const lote = await this.getOrFail(id, tx);
+    lote.vender();
+    await this.loteRepository.alterarStatus(id, 'RESERVADO', lote.status, tx);
+    await this.auditoriaService.registrar(
+      {
+        usuarioId,
+        entidadeTipo: ENTIDADE_TIPO,
+        entidadeId: id,
+        acao: 'VENDER',
+        valorAnterior: { status: 'RESERVADO' },
+        valorNovo: { status: lote.status },
+      },
+      tx,
+    );
+  }
+
+  async liberarReserva(
+    id: string,
+    tx: PrismaTransaction,
+    usuarioId: string | null = null,
+  ): Promise<void> {
     const lote = await this.getOrFail(id, tx);
     lote.liberarReserva();
     await this.loteRepository.alterarStatus(id, 'RESERVADO', 'DISPONIVEL', tx);
     await this.auditoriaService.registrar(
       {
-        usuarioId: null,
+        usuarioId,
         entidadeTipo: 'Lote',
         entidadeId: id,
-        acao: 'EXPIRAR_RESERVA',
+        acao: usuarioId ? 'CANCELAR_RESERVA' : 'EXPIRAR_RESERVA',
         valorAnterior: { status: 'RESERVADO' },
         valorNovo: { status: 'DISPONIVEL' },
       },

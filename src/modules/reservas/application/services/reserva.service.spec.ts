@@ -1,3 +1,4 @@
+import type { EncerramentoPropostasService } from '../../../propostas/application/services/encerramento-propostas.service.js';
 import { ReservaService } from './reserva.service.js';
 import { Reserva } from '../../domain/models/reserva.entity.js';
 import type { LoteService } from '../../../loteamentos/application/services/lote.service.js';
@@ -7,12 +8,28 @@ import type { AuditoriaService } from '../../../auditoria/application/services/a
 import type { TransactionManager } from '../../../../shared/infra/database/transaction.manager.js';
 import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 describe('ReservaService', () => {
-  const repository = { create: vi.fn(), findById: vi.fn() };
-  const lotes = { reservar: vi.fn() };
+  const repository = {
+    create: vi.fn(),
+    findById: vi.fn(),
+    travarAtivaPorLote: vi.fn(),
+    findPropostaAprovada: vi.fn(),
+    converter: vi.fn(),
+    renovar: vi.fn(),
+    cancelar: vi.fn(),
+    contarRenovacoes: vi.fn(),
+    listarRenovacoes: vi.fn(),
+  };
+  const lotes = {
+    reservar: vi.fn(),
+    findById: vi.fn(),
+    vender: vi.fn(),
+    liberarReserva: vi.fn(),
+  };
   const clientes = { validarExistencia: vi.fn() };
-  const config = { getPrazoReservaDias: vi.fn() };
+  const config = { getPrazoReservaDias: vi.fn(), getLimiteRenovacoes: vi.fn() };
   const audit = { registrar: vi.fn() };
   const tx = {} as PrismaTransaction;
+  const encerramento = { porCancelamento: vi.fn() };
   const service = new ReservaService(
     repository,
     lotes as unknown as LoteService,
@@ -22,6 +39,7 @@ describe('ReservaService', () => {
     {
       run: (fn: (tx: PrismaTransaction) => Promise<unknown>) => fn(tx),
     } as TransactionManager,
+    encerramento as unknown as EncerramentoPropostasService,
   );
   const u = {
     id: 'v',
@@ -66,6 +84,97 @@ describe('ReservaService', () => {
       service.findById('r', { ...u, perfil: 'CONSULTA' }),
     ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
   });
+  describe('venda de lote', () => {
+    const gestor = { ...u, perfil: 'GESTOR' as const };
+
+    it('nega Comercial antes de bloquear a reserva', async () => {
+      await expect(service.venderLote('l', u)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+      expect(repository.travarAtivaPorLote).not.toHaveBeenCalled();
+    });
+
+    it('distingue lote existente sem reserva ativa', async () => {
+      repository.travarAtivaPorLote.mockResolvedValue(null);
+      await expect(service.venderLote('l', gestor)).rejects.toMatchObject({
+        code: 'LOTE_SEM_RESERVA_ATIVA',
+      });
+      expect(lotes.findById).toHaveBeenCalledWith('l', tx);
+    });
+
+    it('não vende sem proposta aprovada na reserva bloqueada', async () => {
+      repository.travarAtivaPorLote.mockResolvedValue('r');
+      repository.findPropostaAprovada.mockResolvedValue(null);
+      await expect(service.venderLote('l', gestor)).rejects.toMatchObject({
+        code: 'LOTE_SEM_PROPOSTA_APROVADA',
+      });
+      expect(repository.findPropostaAprovada).toHaveBeenCalledWith('r', tx);
+      expect(lotes.vender).not.toHaveBeenCalled();
+    });
+
+    it('usa a mesma transação na venda, conversão e auditoria', async () => {
+      repository.travarAtivaPorLote.mockResolvedValue('r');
+      repository.findPropostaAprovada.mockResolvedValue('p');
+      await service.venderLote('l', { ...u, perfil: 'ADMINISTRADOR' });
+      expect(lotes.vender).toHaveBeenCalledWith('l', u.id, tx);
+      expect(repository.converter).toHaveBeenCalledWith('r', tx);
+      expect(audit.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entidadeId: 'r',
+          acao: 'CONVERTER',
+          valorNovo: { status: 'CONVERTIDA', loteId: 'l', propostaId: 'p' },
+        }),
+        tx,
+      );
+    });
+  });
+
+  it('renova no mesmo tx e aplica o limite configurado', async () => {
+    const reserva = Reserva.create({ ...dto, vendedorId: u.id }, 7);
+    const anterior = reserva.dados.dataVencimento;
+    repository.findById.mockResolvedValue(reserva);
+    config.getLimiteRenovacoes.mockResolvedValue(1);
+    repository.contarRenovacoes
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0);
+    await expect(service.renovar('r', u)).rejects.toMatchObject({
+      code: 'LIMITE_RENOVACOES_ATINGIDO',
+    });
+    expect(repository.renovar).not.toHaveBeenCalled();
+    repository.findById.mockResolvedValue(
+      Reserva.restore({ ...reserva.dados, dataVencimento: anterior }),
+    );
+    await service.renovar('r', u);
+    expect(repository.renovar).toHaveBeenCalledWith(
+      expect.any(Reserva),
+      anterior,
+      u.id,
+      tx,
+    );
+  });
+
+  it('cancela, libera o lote e audita propostas encerradas no mesmo tx', async () => {
+    repository.findById.mockResolvedValue(
+      Reserva.create({ ...dto, vendedorId: u.id }, 7),
+    );
+    repository.cancelar.mockResolvedValue(['proposta']);
+    const resultado = await service.cancelar(
+      'r',
+      { motivo: 'Desistência', confirmar: true },
+      u,
+    );
+    expect(resultado.status).toBe('CANCELADA');
+    expect(repository.cancelar).toHaveBeenCalledWith('r', 'Desistência', tx);
+    expect(encerramento.porCancelamento).toHaveBeenCalledWith(
+      'r',
+      u.id,
+      true,
+      'Desistência',
+      tx,
+    );
+    expect(lotes.liberarReserva).toHaveBeenCalledWith(dto.loteId, tx, u.id);
+  });
+
   it('propaga falha de auditoria para rollback', async () => {
     audit.registrar.mockRejectedValue(new Error('falha'));
     await expect(service.create(dto, u)).rejects.toThrow('falha');

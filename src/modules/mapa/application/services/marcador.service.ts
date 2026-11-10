@@ -131,6 +131,36 @@ export class MarcadorService {
       return MarcadorDto.from(marcador);
     });
   }
+  async revisar(
+    plantaId: string,
+    id: string,
+    ator: string,
+  ): Promise<MarcadorDto> {
+    return this.transactions.run(async (tx) => {
+      const marcador = await this.repository.find(plantaId, id, tx);
+      if (!marcador)
+        throw new NotFoundError(
+          'MARCADOR_NAO_ENCONTRADO',
+          'Marcador não encontrado nesta planta',
+        );
+      if (marcador.dados.revisar) {
+        marcador.confirmarRevisao();
+        await this.repository.update(marcador, tx);
+        await this.auditoria.registrar(
+          {
+            usuarioId: ator,
+            entidadeTipo: 'Marcador',
+            entidadeId: id,
+            acao: 'REVISAR',
+            valorAnterior: { revisar: true },
+            valorNovo: { revisar: false },
+          },
+          tx,
+        );
+      }
+      return MarcadorDto.from(marcador);
+    });
+  }
   async delete(plantaId: string, id: string, ator: string): Promise<void> {
     await this.plantas.findById(plantaId);
     await this.transactions.run(async (tx) => {

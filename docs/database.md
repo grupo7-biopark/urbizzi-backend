@@ -385,3 +385,7 @@ A migration enable_unaccent habilita a extensão PostgreSQL unaccent para busca 
 ### Reserva e expiração (BE-19/BE-21)
 
 A criação marca lotes.teve_reserva permanentemente. LoteService bloqueia a linha nas leituras com tx, inclusive exclusão/bloqueio, e muda status condicionalmente. Expiração bloqueia reserva com SKIP LOCKED e depois lote; revalida prazo/status/aprovação após adquirir o bloqueio e grava somente tabelas do respectivo módulo via serviço dono. O índice parcial reservas_lote_id_ativa_key já existente continua impedindo reserva ativa duplicada. Não há migration nova. Novos comandos de propostas/renovação devem seguir o protocolo reserva → lote e usar a consulta transacional exportada do serviço de reservas.
+
+BE-34: marcadores.revisar é um booleano obrigatório com padrão false. O par (planta_id, lote_id) continua único. A cópia entre versões gera novos ids e conserva as coordenadas normalizadas.
+
+BE-20: propostas.data_encerramento e motivo_encerramento sao opcionais, preenchidos juntos pelo cancelamento confirmado. O CHECK propostas_encerramento_check exige motivo nao vazio quando encerrada. Status, decidido_por_id, data_decisao e motivo_decisao sao preservados; nenhuma decisao de gestor e atribuida ao vendedor que cancela.
