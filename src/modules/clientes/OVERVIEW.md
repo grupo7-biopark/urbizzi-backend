@@ -10,6 +10,10 @@ Exporta ClienteService. Persistência e auditoria são atômicas; auditoria masc
 
 BE-19: ClienteService.validarExistencia(id, tx) valida cadastro não removido na transação do consumidor e não devolve dados pessoais.
 
+Correção #82: a edição lê o cliente com bloqueio de linha na mesma transação
+da gravação e auditoria. PATCHs concorrentes preservam campos omitidos, e a
+auditoria continua mascarando os dados pessoais.
+
 ## Histórico de reservas e propostas (BE-28, RF13)
 
 `GET /v1/clientes/:id/historico?page=1&pageSize=20` devolve `{ data, meta }`, seguindo a paginação padrão. Administrador e Gestor consultam todo o histórico; Comercial consulta somente suas reservas e as propostas delas, conforme as permissões de acompanhamento de propostas. Consulta recebe `403 ACESSO_NEGADO` e anônimo recebe 401. O vendedor é definido pelo usuário autenticado, sem filtro externo que permita trocar o escopo.

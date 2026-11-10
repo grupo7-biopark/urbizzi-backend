@@ -22,6 +22,8 @@ export class PrismaQuadraRepository implements QuadraRepository {
 
   async findById(id: string, tx?: PrismaTransaction): Promise<Quadra | null> {
     const db = tx ?? this.prisma;
+    if (tx)
+      await tx.$queryRaw`SELECT id FROM quadras WHERE id = ${id}::uuid FOR UPDATE`;
     const row = await db.quadra.findFirst({ where: { id, deletedAt: null } });
     return row ? this.toEntity(row) : null;
   }

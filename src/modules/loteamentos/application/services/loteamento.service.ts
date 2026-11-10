@@ -74,11 +74,11 @@ export class LoteamentoService {
     dto: UpdateLoteamentoDto,
     usuario: UsuarioAutenticado,
   ): Promise<LoteamentoDto> {
-    const loteamento = await this.getOrFail(id);
-    if (dto.nome != null) await this.ensureNomeDisponivel(dto.nome, id);
-    const anterior = loteamento.auditoria;
-    loteamento.atualizar(dto);
-    await this.transactionManager.run(async (tx) => {
+    return this.transactionManager.run(async (tx) => {
+      const loteamento = await this.getOrFail(id, tx);
+      if (dto.nome != null) await this.ensureNomeDisponivel(dto.nome, id);
+      const anterior = loteamento.auditoria;
+      loteamento.atualizar(dto);
       await this.loteamentoRepository.update(loteamento, tx);
       await this.auditoriaService.registrar(
         {
@@ -91,8 +91,8 @@ export class LoteamentoService {
         },
         tx,
       );
+      return LoteamentoDto.from(loteamento);
     });
-    return LoteamentoDto.from(loteamento);
   }
 
   async delete(id: string, usuario: UsuarioAutenticado): Promise<void> {

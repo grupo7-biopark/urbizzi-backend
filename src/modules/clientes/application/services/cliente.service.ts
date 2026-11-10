@@ -65,11 +65,11 @@ export class ClienteService {
     dto: UpdateClienteDto,
     usuarioId: string,
   ): Promise<ClienteDto> {
-    const cliente = await this.getOrFail(id);
-    const anterior = cliente.auditoria;
-    cliente.atualizar(dto);
-    await this.ensureDocumento(cliente.documento, id);
-    await this.transactions.run(async (tx) => {
+    return this.transactions.run(async (tx) => {
+      const cliente = await this.getOrFail(id, tx);
+      const anterior = cliente.auditoria;
+      cliente.atualizar(dto);
+      await this.ensureDocumento(cliente.documento, id);
       await this.repository.save(cliente, tx);
       await this.auditoria.registrar(
         {
@@ -87,8 +87,8 @@ export class ClienteService {
         },
         tx,
       );
+      return ClienteDto.from(cliente);
     });
-    return ClienteDto.from(cliente);
   }
   private async ensureDocumento(documento: string, id?: string) {
     if (await this.repository.existsByDocumento(documento, id))
@@ -97,8 +97,11 @@ export class ClienteService {
         'Já existe um cliente com esse documento',
       );
   }
-  private async getOrFail(id: string): Promise<Cliente> {
-    const cliente = await this.repository.findById(id);
+  private async getOrFail(
+    id: string,
+    tx?: PrismaTransaction,
+  ): Promise<Cliente> {
+    const cliente = await this.repository.findById(id, tx);
     if (!cliente)
       throw new NotFoundError(
         'CLIENTE_NAO_ENCONTRADO',

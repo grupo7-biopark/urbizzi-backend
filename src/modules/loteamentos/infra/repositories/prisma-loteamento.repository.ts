@@ -25,6 +25,8 @@ export class PrismaLoteamentoRepository implements LoteamentoRepository {
     tx?: PrismaTransaction,
   ): Promise<Loteamento | null> {
     const db = tx ?? this.prisma;
+    if (tx)
+      await tx.$queryRaw`SELECT id FROM loteamentos WHERE id = ${id}::uuid FOR UPDATE`;
     const row = await db.loteamento.findFirst({
       where: { id, deletedAt: null },
     });

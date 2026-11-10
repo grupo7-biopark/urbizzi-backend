@@ -84,13 +84,13 @@ export class QuadraService {
     dto: UpdateQuadraDto,
     usuario: UsuarioAutenticado,
   ): Promise<QuadraDto> {
-    const quadra = await this.getOrFail(id);
-    if (dto.numero != null) {
-      await this.ensureNumeroDisponivel(quadra.loteamentoId, dto.numero, id);
-    }
-    const anterior = quadra.auditoria;
-    quadra.atualizar(dto);
-    await this.transactionManager.run(async (tx) => {
+    return this.transactionManager.run(async (tx) => {
+      const quadra = await this.getOrFail(id, tx);
+      if (dto.numero != null) {
+        await this.ensureNumeroDisponivel(quadra.loteamentoId, dto.numero, id);
+      }
+      const anterior = quadra.auditoria;
+      quadra.atualizar(dto);
       await this.quadraRepository.update(quadra, tx);
       await this.auditoriaService.registrar(
         {
@@ -103,8 +103,8 @@ export class QuadraService {
         },
         tx,
       );
+      return QuadraDto.from(quadra);
     });
-    return QuadraDto.from(quadra);
   }
 
   async delete(id: string, usuario: UsuarioAutenticado): Promise<void> {
