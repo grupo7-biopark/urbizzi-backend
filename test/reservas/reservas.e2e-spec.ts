@@ -57,6 +57,33 @@ describe('Criar reserva (e2e)', () => {
       .expect(200);
     expect(detalhe.body.tempoRestanteSegundos).toBeGreaterThan(0);
   });
+  it('prevê o vencimento configurado para Comercial sem acessar configurações ou gravar reserva', async () => {
+    await prisma.configuracao.create({
+      data: { chave: 'prazo_reserva_dias', valor: '4' },
+    });
+    const totalAntes = await prisma.reserva.count();
+    const antes = Date.now();
+    const resposta = await request(app.getHttpServer())
+      .get('/v1/reservas/previsao')
+      .auth(c.usuarios.COMERCIAL.token, { type: 'bearer' })
+      .expect('Cache-Control', 'no-store')
+      .expect(200);
+    expect(resposta.body.prazoDias).toBe(4);
+    const inicioPrevisto =
+      Date.parse(resposta.body.dataVencimento) - 4 * 86400000;
+    expect(inicioPrevisto).toBeGreaterThanOrEqual(antes);
+    expect(inicioPrevisto).toBeLessThanOrEqual(Date.now());
+    expect(await prisma.reserva.count()).toBe(totalAntes);
+    await request(app.getHttpServer())
+      .get('/v1/configuracoes')
+      .auth(c.usuarios.COMERCIAL.token, { type: 'bearer' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/v1/reservas/previsao')
+      .auth(c.usuarios.CONSULTA.token, { type: 'bearer' })
+      .expect(403);
+    await request(app.getHttpServer()).get('/v1/reservas/previsao').expect(401);
+  });
   it('apenas uma de duas requisições concorrentes reserva o lote', async () => {
     const r = await Promise.all([criar(), criar()]);
     expect(r.map((x) => x.status).sort()).toEqual([201, 409]);
