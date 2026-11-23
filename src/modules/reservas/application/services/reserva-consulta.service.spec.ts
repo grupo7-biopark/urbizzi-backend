@@ -1,6 +1,6 @@
 import { ReservaConsultaService } from './reserva-consulta.service.js';
 describe('Consulta de reservas', () => {
-  const repository = { list: vi.fn() };
+  const repository = { list: vi.fn(), listVendedores: vi.fn() };
   const service = new ReservaConsultaService(repository);
   const u = {
     id: 'v',
@@ -19,6 +19,28 @@ describe('Consulta de reservas', () => {
     );
     expect(repository.list).toHaveBeenCalledWith({ ...q, vendedorId: 'v' });
   });
+  it.each(['ADMINISTRADOR', 'GESTOR'] as const)(
+    'lista vendedores para %s',
+    async (perfil) => {
+      repository.listVendedores.mockResolvedValue({
+        total: 1,
+        items: [{ id: 'v', nome: 'Pessoa' }],
+      });
+      expect((await service.listVendedores(q, { ...u, perfil })).data).toEqual([
+        { id: 'v', nome: 'Pessoa' },
+      ]);
+      expect(repository.listVendedores).toHaveBeenCalledWith(q);
+    },
+  );
+  it.each(['COMERCIAL', 'CONSULTA'] as const)(
+    'nega consulta de vendedores a %s',
+    async (perfil) => {
+      await expect(
+        service.listVendedores(q, { ...u, perfil }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+      expect(repository.listVendedores).not.toHaveBeenCalled();
+    },
+  );
   it('gestor filtra geral e minhas sempre força o usuário', async () => {
     await service.list(
       { ...q, vendedorId: 'outro' },

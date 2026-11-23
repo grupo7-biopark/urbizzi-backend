@@ -40,6 +40,34 @@ describe('Listagem de reservas (e2e)', () => {
     request(app.getHttpServer())
       .get('/v1/reservas' + path)
       .auth(c.usuarios[perfil].token, { type: 'bearer' });
+  it('devolve o nome na reserva e pagina somente vendedores com reservas, incluindo históricos', async () => {
+    await prisma.usuario.update({
+      where: { id: c.usuarios.COMERCIAL.id },
+      data: { nome: 'Vendedor do histórico' },
+    });
+    const lista = await get().expect(200);
+    expect(lista.body.data[0].vendedorNome).toBe('Vendedor do histórico');
+    await get('COMERCIAL', '/vendedores').expect(403);
+    await prisma.usuario.update({
+      where: { id: c.usuarios.COMERCIAL.id },
+      data: { ativo: false },
+    });
+    const pagina = await get('GESTOR', '/vendedores?pageSize=1').expect(200);
+    expect(pagina.body.meta).toMatchObject({ total: 2, totalPages: 2 });
+    expect(Object.keys(pagina.body.data[0]).sort()).toEqual(['id', 'nome']);
+    const todos = await get('ADMINISTRADOR', '/vendedores').expect(200);
+    expect(todos.body.data.map((v: { id: string }) => v.id).sort()).toEqual(
+      [c.usuarios.GESTOR.id, c.usuarios.COMERCIAL.id].sort(),
+    );
+    expect(
+      (await get('GESTOR', '/vendedores?page=99').expect(200)).body,
+    ).toMatchObject({ data: [], meta: { total: 2 } });
+    await get('CONSULTA', '/vendedores').expect(403);
+    await get('GESTOR', '/vendedores?pageSize=101').expect(400);
+    await request(app.getHttpServer())
+      .get('/v1/reservas/vendedores')
+      .expect(401);
+  });
   it('gestão vê todas, Comercial só próprias, minhas ignora filtro de outro vendedor', async () => {
     expect((await get().expect(200)).body.meta.total).toBe(5);
     expect((await get('ADMINISTRADOR').expect(200)).body.meta.total).toBe(5);
