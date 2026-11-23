@@ -41,3 +41,5 @@ POST /v1/reservas/:id/cancelar exige motivo. Se ha proposta EM_ANALISE ou APROVA
 EncerramentoPropostasModule pertence a propostas, importa somente auditoria e exporta seu service para reservas, sem ciclo com PropostasModule. Nenhum repositorio de reservas escreve propostas. A migracao acrescenta somente os campos independentes de encerramento em propostas. Falhas de auditoria desfazem todas as alteracoes. Concorrencia com renovacao, expiracao e venda usa o lock de reserva ja existente.
 
 BE-23 consome ReservaService.findById(id, usuario, tx) para autorizar e bloquear a reserva antes de criar propostas. A aprovação e os demais comandos continuam sujeitos à mesma ordem de bloqueios documentada.
+
+Consulta de reservas inclui vendedorNome para apresentação. GET /v1/reservas/vendedores é paginado e restrito a Gestor/Administrador; devolve somente id/nome de usuários com reservas, inclusive históricos e inativos. O filtro continua recebendo vendedorId, sem nomes em URL. O read model une usuários apenas para esta projeção mínima, sem escrita ou importação de internos de outro módulo.

@@ -41,20 +41,20 @@ docs/                           # esta documentação
 
 Cada entidade do banco pertence a **exatamente um** módulo. Só esse módulo lê e escreve na tabela.
 
-| Módulo (`src/modules/`) | Entidades | Responsabilidade | Depende de | Issues |
-| --- | --- | --- | --- | --- |
-| `auth` | `TokenRecuperacaoSenha`, `Sessao` | login, emissão de JWT, recuperação de senha | `usuarios` | BE-07, BE-08 |
-| `usuarios` | `Usuario`, `Perfil` | gestão de usuários e perfis | `auditoria` | BE-10 |
-| `configuracoes` | `Configuracao` | prazos de reserva e de análise | `auditoria` | BE-11 |
-| `auditoria` | `HistoricoAuditoria` | registro e consulta do histórico de alterações | — | BE-06, BE-13 |
-| `loteamentos` | `Loteamento`, `Quadra`, `Lote`, `AreaGeografica` | cadastros, demarcação geográfica, importação de lotes, bloqueio, detalhe do lote | `auditoria` | BE-14 a BE-17, BE-26, BE-27 |
-| `clientes` | `Cliente` | cadastro e busca de clientes, histórico do cliente | `auditoria` | BE-18, BE-28 |
-| `reservas` | `Reserva`, `ReservaRenovacao` | criar, renovar, cancelar, expirar e converter reservas na venda do lote | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22, BE-25 |
-| `propostas` | `Proposta` | proposta, aprovação/rejeição | `reservas`, `configuracoes`, `auditoria` | BE-23, BE-24 |
-| `plantas` | `Planta` | upload, processamento em tiles, versões da planta | `loteamentos`, `auditoria` | BE-30 a BE-32, BE-34 |
-| `mapa` | `Marcador` | marcadores, mapa interno, atualização em tempo real (SSE) | `plantas`, `loteamentos`, `auditoria`, `usuarios` | BE-33, BE-35, BE-36 |
-| `links-publicos` | `LinkPublico` | links públicos e mapa público por token | `loteamentos`, `auditoria`, `mapa` | BE-37, BE-38 |
-| `painel` | — (só leitura) | indicadores | `loteamentos`, `reservas`, `propostas` | BE-39 |
+| Módulo (`src/modules/`) | Entidades                                        | Responsabilidade                                                                 | Depende de                                              | Issues                      |
+| ----------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------------- |
+| `auth`                  | `TokenRecuperacaoSenha`, `Sessao`                | login, emissão de JWT, recuperação de senha                                      | `usuarios`                                              | BE-07, BE-08                |
+| `usuarios`              | `Usuario`, `Perfil`                              | gestão de usuários e perfis                                                      | `auditoria`                                             | BE-10                       |
+| `configuracoes`         | `Configuracao`                                   | prazos de reserva e de análise                                                   | `auditoria`                                             | BE-11                       |
+| `auditoria`             | `HistoricoAuditoria`                             | registro e consulta do histórico de alterações                                   | —                                                       | BE-06, BE-13                |
+| `loteamentos`           | `Loteamento`, `Quadra`, `Lote`, `AreaGeografica` | cadastros, demarcação geográfica, importação de lotes, bloqueio, detalhe do lote | `auditoria`                                             | BE-14 a BE-17, BE-26, BE-27 |
+| `clientes`              | `Cliente`                                        | cadastro e busca de clientes, histórico do cliente                               | `auditoria`                                             | BE-18, BE-28                |
+| `reservas`              | `Reserva`, `ReservaRenovacao`                    | criar, renovar, cancelar, expirar e converter reservas na venda do lote          | `loteamentos`, `clientes`, `configuracoes`, `auditoria` | BE-19 a BE-22, BE-25        |
+| `propostas`             | `Proposta`                                       | proposta, aprovação/rejeição                                                     | `reservas`, `configuracoes`, `auditoria`                | BE-23, BE-24                |
+| `plantas`               | `Planta`                                         | upload, processamento em tiles, versões da planta                                | `loteamentos`, `auditoria`                              | BE-30 a BE-32, BE-34        |
+| `mapa`                  | `Marcador`                                       | marcadores, mapa interno, atualização em tempo real (SSE)                        | `plantas`, `loteamentos`, `auditoria`, `usuarios`       | BE-33, BE-35, BE-36         |
+| `links-publicos`        | `LinkPublico`                                    | links públicos e mapa público por token                                          | `loteamentos`, `auditoria`, `mapa`                      | BE-37, BE-38                |
+| `painel`                | — (só leitura)                                   | indicadores                                                                      | `loteamentos`, `reservas`, `propostas`                  | BE-39                       |
 
 Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em [storage.md](storage.md). Contrato `Storage` e token `STORAGE` ficam em `shared/application/storage`, com helper para geração de chaves. Os módulos consumidores importam `StorageModule` e injetam o contrato na camada application, sem importar AWS SDK. Esta infraestrutura técnica não possui tabela nem endpoints próprios.
 
@@ -65,7 +65,6 @@ Armazenamento S3 implementado em `shared/infra/storage` (BE-29); uso e setup em 
 runSeed valida a entrada, calcula Argon2id e prepara arquivos fora da transação. SeedRepository serializa execuções com advisory lock e insere somente registros ausentes numa única transação. Registros existentes nunca recebem promoção, senha nova, reativação ou redefinição de valores. O mapa de exemplo usa chaves de objetos e IDs estáveis; PNG/WebP reais são enviados antes de registrar uma planta PRONTA. Falha de banco pode deixar somente esses dois objetos de exemplo, reutilizados na próxima execução, sem crescimento de chaves. A planta ativa existente é preservada. Mais detalhes em [seed.md](seed.md).
 
 Autenticação e autorização implementadas em `shared/infra/auth` (BE-07/BE-09): `JwtAuthGuard` e `PerfisGuard` globais, `@Public()`, `@CurrentUser()` e `@Perfis(...)`. A policy reutilizável `shared/domain/policies/propriedade.policy.ts` verifica Admin/Gestor ou Comercial responsável, sem depender do framework. Detalhes na [segurança](security.md).
-
 
 **As dependências entre módulos não podem formar ciclo.** Se A depende de B, B não pode depender de A. Quando uma reação precisar ir no sentido contrário, use eventos (ver [Comunicação entre módulos](#comunicação-entre-módulos)). Ao criar um módulo ou uma dependência nova, atualize esta tabela.
 
@@ -109,11 +108,11 @@ Um módulo com várias entidades (ex.: `loteamentos` com `Loteamento`, `Quadra` 
 
 ### Responsabilidades de cada camada
 
-| Camada | Contém | Pode importar | Não pode |
-| --- | --- | --- | --- |
-| `domain/` | entidades, contratos de repositório, policies, eventos | apenas `src/shared/domain/` e `node:*` | importar NestJS, Prisma Client, DTOs ou qualquer coisa de `application/` e `infra/` (exceção: tipo `PrismaTransaction` nos contratos de repositório) |
-| `application/` | services (casos de uso) e DTOs | `domain/` do próprio módulo, `src/shared/domain/`, `src/shared/application/`, `@nestjs/common` (só `Injectable`/`Inject`), `class-validator`, `class-transformer`, `@nestjs/swagger` (só em DTOs), services exportados por outros módulos, `TransactionManager` | acessar `PrismaService`, lançar `HttpException`, ler `Request`/`Response` |
-| `infra/` | controllers e repositórios Prisma | tudo do próprio módulo e `src/shared/` | conter regra de negócio |
+| Camada         | Contém                                                 | Pode importar                                                                                                                                                                                                                                                   | Não pode                                                                                                                                             |
+| -------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain/`      | entidades, contratos de repositório, policies, eventos | apenas `src/shared/domain/` e `node:*`                                                                                                                                                                                                                          | importar NestJS, Prisma Client, DTOs ou qualquer coisa de `application/` e `infra/` (exceção: tipo `PrismaTransaction` nos contratos de repositório) |
+| `application/` | services (casos de uso) e DTOs                         | `domain/` do próprio módulo, `src/shared/domain/`, `src/shared/application/`, `@nestjs/common` (só `Injectable`/`Inject`), `class-validator`, `class-transformer`, `@nestjs/swagger` (só em DTOs), services exportados por outros módulos, `TransactionManager` | acessar `PrismaService`, lançar `HttpException`, ler `Request`/`Response`                                                                            |
+| `infra/`       | controllers e repositórios Prisma                      | tudo do próprio módulo e `src/shared/`                                                                                                                                                                                                                          | conter regra de negócio                                                                                                                              |
 
 Regras de negócio ficam **na entidade** quando dependem só dos dados dela (ex.: "uma reserva só pode ser renovada se estiver ATIVA") e **no service** quando dependem de outros dados (ex.: "o nome do loteamento é único", "o lote precisa estar DISPONIVEL para ser reservado").
 
@@ -231,15 +230,18 @@ O módulo `auditoria` (BE-06) exporta `AuditoriaService.registrar({ usuarioId, e
 ```ts
 await this.transactionManager.run(async (tx) => {
   await this.repository.update(entidade, tx);
-  await this.auditoriaService.registrar({
-    usuarioId,
-    entidadeTipo: 'Lote',
-    entidadeId: entidade.id,
-    acao: 'ALTERAR_STATUS',
-    valorAnterior: { status: 'DISPONIVEL' },
-    valorNovo: { status: 'RESERVADO' },
-    motivo: 'Reserva solicitada',
-  }, tx);
+  await this.auditoriaService.registrar(
+    {
+      usuarioId,
+      entidadeTipo: 'Lote',
+      entidadeId: entidade.id,
+      acao: 'ALTERAR_STATUS',
+      valorAnterior: { status: 'DISPONIVEL' },
+      valorNovo: { status: 'RESERVADO' },
+      motivo: 'Reserva solicitada',
+    },
+    tx,
+  );
 });
 ```
 
@@ -280,7 +282,10 @@ export interface LoteamentoProps {
   updatedAt: Date;
 }
 
-export type CreateLoteamentoInput = Pick<LoteamentoProps, 'nome' | 'cidade' | 'uf'>;
+export type CreateLoteamentoInput = Pick<
+  LoteamentoProps,
+  'nome' | 'cidade' | 'uf'
+>;
 export type UpdateLoteamentoInput = Partial<CreateLoteamentoInput>;
 
 export class Loteamento {
@@ -360,7 +365,10 @@ export interface LoteamentoFiltros {
 export interface LoteamentoRepository {
   findById(id: string, tx?: PrismaTransaction): Promise<Loteamento | null>;
   existsByNome(nome: string, ignoreId?: string): Promise<boolean>;
-  list(filtros: LoteamentoFiltros, pagination: Pagination): Promise<Page<Loteamento>>;
+  list(
+    filtros: LoteamentoFiltros,
+    pagination: Pagination,
+  ): Promise<Page<Loteamento>>;
   create(loteamento: Loteamento, tx?: PrismaTransaction): Promise<void>;
   update(loteamento: Loteamento, tx?: PrismaTransaction): Promise<void>;
   delete(id: string, tx?: PrismaTransaction): Promise<void>;
@@ -463,7 +471,10 @@ export class LoteamentoDto {
 ```ts
 import { Inject, Injectable } from '@nestjs/common';
 import { PaginatedDto } from '../../../../shared/application/dto/paginated.dto.js';
-import { ConflictError, NotFoundError } from '../../../../shared/domain/errors/domain.error.js';
+import {
+  ConflictError,
+  NotFoundError,
+} from '../../../../shared/domain/errors/domain.error.js';
 import { Loteamento } from '../../domain/models/loteamento.entity.js';
 import {
   LOTEAMENTO_REPOSITORY,
@@ -492,9 +503,14 @@ export class LoteamentoService {
     return LoteamentoDto.from(await this.getOrFail(id));
   }
 
-  async list(query: ListLoteamentosQueryDto): Promise<PaginatedDto<LoteamentoDto>> {
+  async list(
+    query: ListLoteamentosQueryDto,
+  ): Promise<PaginatedDto<LoteamentoDto>> {
     const { page, pageSize, ...filtros } = query;
-    const result = await this.loteamentoRepository.list(filtros, { page, pageSize });
+    const result = await this.loteamentoRepository.list(filtros, {
+      page,
+      pageSize,
+    });
     return PaginatedDto.of(
       { items: result.items.map(LoteamentoDto.from), total: result.total },
       { page, pageSize },
@@ -517,14 +533,23 @@ export class LoteamentoService {
   private async getOrFail(id: string): Promise<Loteamento> {
     const loteamento = await this.loteamentoRepository.findById(id);
     if (!loteamento) {
-      throw new NotFoundError('LOTEAMENTO_NAO_ENCONTRADO', 'Loteamento não encontrado');
+      throw new NotFoundError(
+        'LOTEAMENTO_NAO_ENCONTRADO',
+        'Loteamento não encontrado',
+      );
     }
     return loteamento;
   }
 
-  private async ensureNomeDisponivel(nome: string, ignoreId?: string): Promise<void> {
+  private async ensureNomeDisponivel(
+    nome: string,
+    ignoreId?: string,
+  ): Promise<void> {
     if (await this.loteamentoRepository.existsByNome(nome.trim(), ignoreId)) {
-      throw new ConflictError('LOTEAMENTO_JA_EXISTE', 'Já existe um loteamento com esse nome');
+      throw new ConflictError(
+        'LOTEAMENTO_JA_EXISTE',
+        'Já existe um loteamento com esse nome',
+      );
     }
   }
 }
@@ -538,7 +563,11 @@ import type {
   Loteamento as LoteamentoRecord,
   Prisma,
 } from '../../../../generated/prisma/client.js';
-import { toSkipTake, type Page, type Pagination } from '../../../../shared/domain/pagination.js';
+import {
+  toSkipTake,
+  type Page,
+  type Pagination,
+} from '../../../../shared/domain/pagination.js';
 import { PrismaService } from '../../../../shared/infra/database/prisma.service.js';
 import type { PrismaTransaction } from '../../../../shared/infra/database/prisma.transaction.js';
 import { Loteamento } from '../../domain/models/loteamento.entity.js';
@@ -551,9 +580,14 @@ import type {
 export class PrismaLoteamentoRepository implements LoteamentoRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string, tx?: PrismaTransaction): Promise<Loteamento | null> {
+  async findById(
+    id: string,
+    tx?: PrismaTransaction,
+  ): Promise<Loteamento | null> {
     const db = tx ?? this.prisma;
-    const row = await db.loteamento.findFirst({ where: { id, deletedAt: null } });
+    const row = await db.loteamento.findFirst({
+      where: { id, deletedAt: null },
+    });
     return row ? this.toEntity(row) : null;
   }
 
@@ -568,7 +602,10 @@ export class PrismaLoteamentoRepository implements LoteamentoRepository {
     return count > 0;
   }
 
-  async list(filtros: LoteamentoFiltros, pagination: Pagination): Promise<Page<Loteamento>> {
+  async list(
+    filtros: LoteamentoFiltros,
+    pagination: Pagination,
+  ): Promise<Page<Loteamento>> {
     const where: Prisma.LoteamentoWhereInput = {
       deletedAt: null,
       ...(filtros.uf && { uf: filtros.uf.toUpperCase() }),
@@ -603,13 +640,20 @@ export class PrismaLoteamentoRepository implements LoteamentoRepository {
     const db = tx ?? this.prisma;
     await db.loteamento.update({
       where: { id: loteamento.id },
-      data: { nome: loteamento.nome, cidade: loteamento.cidade, uf: loteamento.uf },
+      data: {
+        nome: loteamento.nome,
+        cidade: loteamento.cidade,
+        uf: loteamento.uf,
+      },
     });
   }
 
   async delete(id: string, tx?: PrismaTransaction): Promise<void> {
     const db = tx ?? this.prisma;
-    await db.loteamento.update({ where: { id }, data: { deletedAt: new Date() } });
+    await db.loteamento.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 
   private toEntity(row: LoteamentoRecord): Loteamento {
@@ -669,7 +713,9 @@ export class LoteamentosController {
   @Get()
   @ApiPaginatedResponse(LoteamentoDto)
   @ApiErrorResponses(400, 401)
-  list(@Query() query: ListLoteamentosQueryDto): Promise<PaginatedDto<LoteamentoDto>> {
+  list(
+    @Query() query: ListLoteamentosQueryDto,
+  ): Promise<PaginatedDto<LoteamentoDto>> {
     return this.loteamentoService.list(query);
   }
 
@@ -733,18 +779,23 @@ Todo módulo tem um `OVERVIEW.md` com estas seções:
 Resumo de uma ou duas frases do que o módulo faz.
 
 ## Modelo de domínio
+
 Entidades, campos principais, enums e relacionamentos.
 
 ## Regras de negócio
+
 Lista numerada, citando os requisitos (RF/RN) do escopo quando houver.
 
 ## Endpoints
+
 | Método | Rota | Perfis | Descrição |
 
 ## Códigos de erro
+
 | code | HTTP | Quando |
 
 ## Dependências
+
 Módulos importados e services usados; services exportados e quem os usa; eventos emitidos/consumidos.
 ```
 
@@ -755,6 +806,7 @@ Os testes deste exemplo estão em [testing.md](testing.md#exemplos).
 `RecuperacaoSenhaService` usa `UsuarioService` para consultar contas ativas, gerar hash e alterar senha dentro da transação. O repositório de recuperação acessa somente as tabelas de `auth` (tokens e sessões). `EmailModule`, em `shared/infra/email`, implementa o contrato técnico `shared/application/email/Email` com SMTP via Nodemailer. Não possui tabelas. O SMTP é chamado depois de persistir o token, fora de transação.
 
 Na autenticação, `AuthService` abre as transações de login/refresh com `TransactionManager`. `UsuarioService` coordena o bloqueio de credenciais no repositório dono de `usuarios`, e o repositório de sessões recebe a mesma transação para criação/rotação. A redefinição usa o mesmo bloqueio ao atualizar a senha, sempre antes de consumir tokens e revogar sessões. Isso evita sessões sobreviventes em requisições simultâneas sem migração ou acoplamento entre repositórios de módulos distintos.
+
 ## Entregas BE-11, BE-13, BE-18, BE-26 e BE-37
 
 Configurações exporta leitura tipada de prazos e usa cache local invalidado após commit. Clientes fornece cadastro/busca com documento validado e snapshots de auditoria mascarados. Links públicos usa o LoteamentoService exportado para validar escopo opcional e mantém tokens fora da auditoria. Bloqueio/desbloqueio usa atualização condicional do status anterior e grava a auditoria na mesma transação.
@@ -766,6 +818,7 @@ Cada módulo documenta seus endpoints, códigos de erro e limites no OVERVIEW. L
 ### Marcadores (BE-33)
 
 MapaModule implementa os marcadores previstos no mapa de módulos e exporta MarcadorService. As rotas são aninhadas em plantas, mas pertencem a mapa. PlantaService e LoteService validam os recursos e LoteService.listExcluindo fornece lotes não removidos com exclusão de ids e paginação. Escritas de marcadores e auditoria são atômicas; o índice único existente impede duplicidade concorrente. Listagens são permitidas a todos os perfis internos; edição somente a Administrador/Gestor.
+
 ### Gestão de usuários (BE-10)
 
 UsuariosModule importa AuditoriaModule e mantém UsuarioService exportado para BE-07/BE-08. GestaoUsuarioService atende as rotas administrativas e usa UsuarioRepository para consultas/bloqueios existentes e GestaoUsuarioRepository para persistência/listagem administrativa. Ambos os adapters acessam somente as tabelas do próprio módulo. Escritas administrativas adquirem um bloqueio advisory transacional antes do bloqueio da linha do usuário, garantindo a proteção do último administrador em desativações e rebaixamentos concorrentes. Hash da senha inicial é calculado antes da transação; a auditoria participa do mesmo commit.
@@ -784,12 +837,11 @@ ReservasModule coordena serviços exportados de clientes, loteamentos, configura
 
 ### Listagem de reservas (BE-22)
 
-PrismaReservaConsultaRepository é um read model explícito, como mapa/auditoria: une reservas, lote/quadra/loteamento, somente id/nome do cliente e resumo da última proposta. Exceção de leitura às tabelas por módulo, sem escritas ou importação de repositórios/entidades alheios. Página e total vêm de uma consulta parametrizada. ReservaConsultaService restringe o vendedor antes de consultar. O controller de listagens registra /minhas antes da rota /:id; os dois são documentados no Swagger. As escritas de reserva continuam isoladas no adapter próprio.
+PrismaReservaConsultaRepository é um read model explícito, como mapa/auditoria: une reservas, lote/quadra/loteamento, somente id/nome do cliente, nome do vendedor (leitura mínima de usuários) e resumo da última proposta. A consulta paginada /reservas/vendedores projeta somente id/nome de usuários que possuem reservas, incluindo usuários inativos para o histórico; é restrita a Gestor/Administrador. Exceção de leitura às tabelas por módulo, sem escritas ou importação de repositórios/entidades alheios. Página e total vêm de uma consulta parametrizada. ReservaConsultaService restringe o vendedor antes de consultar. O controller de listagens registra /minhas antes da rota /:id; os dois são documentados no Swagger. As escritas de reserva continuam isoladas no adapter próprio.
 
 ### Expiração de reservas (BE-21)
 
 ReservasModule registra ScheduleModule e ExpiracaoReservasJob; agenda a cada cinco minutos e delega ao service. Projeção explícita de elegibilidade em PrismaExpiracaoReservaRepository permite somente leitura EXISTS de proposta aprovada (RN12), sem importar módulo/repositório de propostas ou escrever tabela alheia. A revalidação ocorre depois de bloquear a reserva, num novo snapshot. Todos os futuros comandos sobre reserva/proposta devem adquirir o mesmo bloqueio pelo ReservaService.findById(id, usuario, tx) antes de decidir/gravar: uma aprovação deve ser serializada com a expiração, nunca feita após leitura sem bloqueio. Lote é alterado exclusivamente pelo serviço dono. Cada reserva tem sua própria transação e auditorias atômicas, falhas individuais não travam a fila. Paginação por UUID evita reprocessar falhas no mesmo ciclo; outras instâncias usam SKIP LOCKED. Shutdown espera execução pendente, sem nova infraestrutura.
-
 
 ### Venda de lote (BE-25)
 
@@ -807,14 +859,11 @@ PrismaLoteDetalheRepository usa uma consulta parametrizada que projeta cadastros
 
 ClientesModule registra HistoricoClienteService e PrismaHistoricoClienteRepository. Como nas consultas de reservas e mapa, o adapter é uma exceção explícita de leitura entre tabelas: une clientes, reservas, propostas, lotes, quadras e loteamentos, projetando apenas os campos do histórico. Não escreve tabelas alheias nem importa arquivos internos de outros módulos. Assim não cria ciclo com ReservasModule, que já depende de ClientesModule. Uma única consulta parametrizada verifica a existência do cliente, aplica o escopo de vendedor antes da contagem e pagina uma linha do tempo unificada. Não há N+1; contagem e itens compartilham o snapshot. O índice existente de reservas por cliente e o de propostas por reserva atendem os relacionamentos. O DTO normaliza datas em UTC e preserva valores monetários como texto decimal.
 
-
 O módulo AcervoMarcadoresModule fornece o repositório de marcadores ao módulo mapa e exporta CopiaMarcadoresService para plantas. Assim o upload copia as posições na transação que cria a nova versão, sem dependência circular entre PlantasModule e MapaModule. O lock de ativação determina qual planta é a origem da cópia; uma instrução INSERT ... SELECT copia o conjunto de marcadores.
 
 ### Painel de indicadores (BE-39)
 
 PainelModule registra PainelService e PrismaPainelConsultaRepository. Como no mapa e no histórico do cliente, o adapter de consulta é um read model explícito: agrega dados de loteamentos, quadras, lotes, reservas, propostas e usuários via consultas SQL parametrizadas diretamente no banco de dados (COUNT, SUM, GROUP BY), sem carregar históricos ou coleções em memória no Node. Não realiza escritas em tabelas nem acessa repositórios alheios. Para validação de escopo e existência de loteamento, PainelService utiliza LoteamentoService exportado pelo LoteamentosModule. O escopo do perfil COMERCIAL é restrito às suas próprias pendências pelo service antes da consulta. Cálculos de semanas ISO utilizam o ano da quinta-feira da respectiva semana (IYYY-IW no Postgres), evitando anomalias em viradas de ano (dezembro/janeiro). Todas as rotas do painel respondem com cabeçalho `Cache-Control: no-store` e preservam valores monetários como strings decimais exatas.
-
-
 
 ### Encerramento de propostas por cancelamento (BE-20)
 

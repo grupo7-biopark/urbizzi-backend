@@ -10,6 +10,7 @@ export interface FiltrosReservas extends Pagination {
 export interface ReservaResumo {
   id: string;
   vendedorId: string;
+  vendedorNome: string;
   status: StatusReserva;
   dataInicio: string;
   dataVencimento: string;
@@ -32,4 +33,7 @@ export const RESERVA_CONSULTA_REPOSITORY = Symbol(
 );
 export interface ReservaConsultaRepository {
   list(filtros: FiltrosReservas): Promise<Page<ReservaResumo>>;
+  listVendedores(
+    paginacao: Pagination,
+  ): Promise<Page<{ id: string; nome: string }>>;
 }

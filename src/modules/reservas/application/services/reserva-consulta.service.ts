@@ -11,12 +11,25 @@ import {
 } from '../../domain/repositories/reserva-consulta.repository.interface.js';
 import type { ListReservasQueryDto } from '../dto/list-reservas-query.dto.js';
 import type { ReservaResumoDto } from '../dto/reserva-resumo.dto.js';
+import type { PaginationQueryDto } from '../../../../shared/application/dto/pagination-query.dto.js';
+import type { VendedorReservaDto } from '../dto/vendedor-reserva.dto.js';
 @Injectable()
 export class ReservaConsultaService {
   constructor(
     @Inject(RESERVA_CONSULTA_REPOSITORY)
     private readonly repository: ReservaConsultaRepository,
   ) {}
+  async listVendedores(
+    query: PaginationQueryDto,
+    usuario: UsuarioAutenticado,
+  ): Promise<PaginatedDto<VendedorReservaDto>> {
+    if (usuario.perfil !== 'ADMINISTRADOR' && usuario.perfil !== 'GESTOR')
+      throw new ForbiddenError(
+        'ACESSO_NEGADO',
+        'Você não tem permissão para executar esta ação',
+      );
+    return PaginatedDto.of(await this.repository.listVendedores(query), query);
+  }
   async list(
     query: ListReservasQueryDto,
     usuario: UsuarioAutenticado,

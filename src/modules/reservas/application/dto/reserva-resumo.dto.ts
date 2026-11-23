@@ -20,6 +20,7 @@ export class PropostaReservaResumoDto {
 export class ReservaResumoDto implements ReservaResumo {
   id: string;
   vendedorId: string;
+  vendedorNome: string;
   @ApiProperty({ enum: ['ATIVA', 'CANCELADA', 'EXPIRADA', 'CONVERTIDA'] })
   status: ReservaResumo['status'];
   @ApiProperty({ format: 'date-time' }) dataInicio: string;
